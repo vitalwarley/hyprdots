@@ -1,0 +1,52 @@
+# HyDE-managed template files
+# These files are managed by HyDE and sourced from ~/.local/share/hyde/
+# Do not version these - they will be overwritten by HyDE updates
+
+hypr/hyprland.conf
+hypr/hyprlock.conf
+hypr/hypridle.conf
+hypr/animations.conf
+hypr/nvidia.conf
+hypr/pyprland.toml
+hypr/shaders.conf
+hypr/workflows.conf
+
+# HyDE-managed directories
+hypr/themes/
+
+# HyDE-managed animation templates (keep custom ones)
+# Uncomment specific files you want to ignore:
+# hypr/animations/classic.conf
+# hypr/animations/diablo-1.conf
+# hypr/animations/diablo-2.conf
+# hypr/animations/disable.conf
+# hypr/animations/dynamic.conf
+# hypr/animations/end4.conf
+# hypr/animations/fast.conf
+# hypr/animations/high.conf
+# hypr/animations/ja.conf
+# hypr/animations/me-1.conf
+# hypr/animations/me-2.conf
+# hypr/animations/minimal-1.conf
+# hypr/animations/minimal-2.conf
+# hypr/animations/moving.conf
+# hypr/animations/optimized.conf
+# hypr/animations/standard.conf
+# hypr/animations/theme.conf
+# hypr/animations/vertical.conf
+
+# HyDE-managed hyprlock templates (keep custom ones)
+# Uncomment specific files you want to ignore:
+# hypr/hyprlock/Anurati.conf
+# hypr/hyprlock/Arfan on Clouds.conf
+# hypr/hyprlock/IBM Plex.conf
+# hypr/hyprlock/SF Pro.conf
+# hypr/hyprlock/theme.conf
+
+# HyDE-managed workflow templates (keep custom ones)
+# Uncomment specific files you want to ignore:
+# hypr/workflows/default.conf
+# hypr/workflows/editing.conf
+# hypr/workflows/gaming.conf
+# hypr/workflows/powersaver.conf
+# hypr/workflows/snappy.conf
