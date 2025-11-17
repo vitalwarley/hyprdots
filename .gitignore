@@ -3,7 +3,6 @@
 # Do not version these - they will be overwritten by HyDE updates
 
 hypr/hyprland.conf
-hypr/hyprlock.conf
 hypr/hypridle.conf
 hypr/animations.conf
 hypr/nvidia.conf
