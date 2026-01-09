@@ -1,3 +1,6 @@
+# Wallbash-generated theme files
+waybar/theme.css
+
 # HyDE-managed template files
 # These files are managed by HyDE and sourced from ~/.local/share/hyde/
 # Do not version these - they will be overwritten by HyDE updates
