@@ -6,6 +6,7 @@
     ],
     "height": 10,
     "exclusive": true,
+    "passthrough": false,
     "reload_style_on_change": true,
     "include": [
         "$XDG_CONFIG_HOME/waybar/modules/*json*", 
@@ -29,7 +30,8 @@
         "orientation": "inherit",
         "modules": [
             "idle_inhibitor",
-            "clock"
+            "clock",
+            "hyprland/workspaces"
         ]
     },
     "modules-center": [
@@ -38,7 +40,6 @@
     "group/pill#center": {
         "orientation": "inherit",
         "modules": [
-            "hyprland/workspaces",
             "hyprland/window"
         ]
     },
