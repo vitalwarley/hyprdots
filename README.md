@@ -114,3 +114,17 @@ chmod +x ~/.local/share/applications/your-app.desktop
 ```
 
 Replace `your-app.desktop` with the actual file name. This step is essential for your changes to take effect when launching applications via menus, launchers, or tools like `rofi`.
+
+## Thunar Configuration
+
+The `xfce4/` folder contains configuration for Thunar file manager when used outside of the XFCE desktop environment.
+
+### Terminal Emulator
+
+`xfce4/helpers.rc` configures the terminal emulator used by Thunar's "Open Terminal Here" action. To use it:
+
+```bash
+ln -s /path/to/hyprdots/xfce4/helpers.rc ~/.config/xfce4/helpers.rc
+```
+
+This sets kitty as the default terminal for Thunar on Hyprland.
