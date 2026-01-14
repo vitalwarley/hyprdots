@@ -17,3 +17,11 @@ Configured kitty as Thunar's terminal emulator by creating xfce4/helpers.rc in t
 **File**: ~/.claude/memory/diary/2026-01-13-session-1.md
 
 Fixed Hyprland 0.53.1 "invalid field" configuration errors after upgrade. Converted window rules and layer rules to new syntax: `windowrulev2` → `windowrule` with `match:` prefixes, `initialTitle` → `initial_title`, and `ignorezero` → `ignore_alpha 0`. Updated both repo config and HyDE system config.
+
+---
+
+## [2026-01-14] Diary
+
+**File**: ~/.claude/memory/diary/2026-01-14-session-1.md
+
+Added external monitor brightness control to keyboard shortcuts. Created a wrapper script that uses ddcutil for DDC/CI external monitors while preserving the original HyDE script for the internal display. Wrapper approach chosen to survive HyDE updates.
