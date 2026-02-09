@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Name=Screenpipe
+GenericName=Screen & Audio Recorder
+Comment=24/7 AI-powered screen and audio capture with local search
+Exec=screenpipe
+Terminal=false
+Icon=screenpipe
+Type=Application
+Categories=Utility;Recorder;
+Keywords=screen;record;capture;ai;memory;ocr;audio;
+StartupNotify=false
+SingleMainWindow=true
