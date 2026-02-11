@@ -41,3 +41,11 @@ Investigated abnormally high battery power consumption (~31W) on Hyprland system
 **File**: [life/.sessions/claude/20260209-091900-screenpipe-setup.md](../../.sessions/claude/20260209-091900-screenpipe-setup.md)
 
 Added screenpipe .desktop entry and environment.d/path.conf for session-wide PATH (nvm, cargo, flutter). Built Tauri desktop app from source but hit upstream tokio panic bug (#2201); reverted to CLI server.
+
+---
+
+## [2026-02-11] Fix HyDE env.zsh PATH Clobbering
+
+**File**: [.sessions/claude/20260211-093658-fix-hyde-env-path-clobber.md](.sessions/claude/20260211-093658-fix-hyde-env-path-clobber.md)
+
+Fixed HyDE's `env.zsh` clobbering PATH entries from `conf.d` scripts (nvm node bin from `01-dev-paths.zsh`). Added `_HYDE_ENV_SOURCED` source guard and idempotent PATH prepend. Created reapplyable `shell/patch-hyde-env.sh` for after `hyde update`. Added CHANGELOG.md to the repo.
