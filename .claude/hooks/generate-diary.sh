@@ -110,7 +110,7 @@ PROMPTEOF
 # Generate diary via claude
 claude -p "$(cat "$PROMPT_FILE")" \
     --model haiku \
-    --max-turns 1 \
+    --max-turns 3 \
     > "$DIARY_FILE" 2>&1
 
 # Append session ID metadata for deduplication on re-runs
