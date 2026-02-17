@@ -61,6 +61,7 @@
 - when creating source-aligned content (presentations, reviews), read the specific source section first — never generate from general knowledge
 - when building enumerative lists, explicitly ask "what am I missing?" rather than presenting as complete
 - verify technical claims (bug fixes, performance improvements) with reproducible tests before documenting in PRs/issues
+- before applying any suggestion that introduces a new property, method, or API call, verify it exists in the actual types/docs/source — grep installed packages, check official docs, or read the source; never trust suggested identifiers without checking
 
 ## Visual Communication
 - use mermaid diagrams (not ASCII art)
