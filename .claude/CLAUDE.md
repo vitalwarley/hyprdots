@@ -1,7 +1,9 @@
 ## System & Docker
 - user runs Arch Linux (pacman, rolling-release) — never assume Debian/Ubuntu package management
 - Add "2>&1" to docker logs commands to capture both stdout and stderr
+- docker-compose up -V (renew anonymous volumes) when container dependencies change — stale volumes cause phantom "module not found"
 - Always run python with 'uv run' first.
+- Dockerfile: use `--no-editable` for pip install in containers — editable installs cached in named volumes survive code restructuring and cause stale imports
 
 ## Documentation Standards
 - prefer comprehensive technical docs with practical examples, code snippets, and authoritative references over brief summaries
@@ -17,7 +19,6 @@
 - prioritize Microsoft Learn and official vendor documentation, then validate with community sources
 - always cite authoritative sources in documentation
 - document critical technical decisions in decision-log.md with: Context → Options (multiple) with Trade-offs → Industry Recommendation → Approval Checkboxes
-- maintain running count of decisions across documents (e.g., "24→25 decisions")
 - link decision log entries to detailed technical documentation
 
 ## Git & PR Workflow
@@ -31,6 +32,11 @@
 - read project-specific development guidelines (commit format, PR template, branch naming) before any git operation — project conventions override global rules
 - separate branches per concern: never mix documentation, tooling, and feature changes in one branch
 - when creating PRs from feature branches, explicitly verify and pass `--base` to avoid targeting wrong branch
+
+## Diagnostic Protocol
+- when a bug involves data shape mismatch (wrong fields, missing keys, unexpected structure): trace the data from origin through persistence to consumption BEFORE proposing any fix — the fix should address why the shapes diverge, not just which property to read
+- when proposing a fix, explicitly state whether it addresses the symptom or the structural cause; if symptom-only, present the structural fix as the recommended approach
+- when a fix involves changing how one side reads data to match the other side's format: verify a typed contract enforces the format; if none exists, adding the contract is the primary fix
 
 ## Code Quality & Style
 - python: use type hints, Pydantic Settings, dataclasses, enums for type safety
@@ -61,7 +67,8 @@
 - when creating source-aligned content (presentations, reviews), read the specific source section first — never generate from general knowledge
 - when building enumerative lists, explicitly ask "what am I missing?" rather than presenting as complete
 - verify technical claims (bug fixes, performance improvements) with reproducible tests before documenting in PRs/issues
-- before applying any suggestion that introduces a new property, method, or API call, verify it exists in the actual types/docs/source — grep installed packages, check official docs, or read the source; never trust suggested identifiers without checking
+- before applying any suggestion that introduces a new property, method, or API call, verify it exists in the actual types/docs/source — grep installed packages, check official docs, or read the source; never trust suggested identifiers without checking. This includes bot review suggestions: treat review comments as unverified claims
+- do not ask for confirmation when the current plan already specifies the action — only confirm at irreversible decision points (merge, deploy, delete)
 
 ## Visual Communication
 - use mermaid diagrams (not ASCII art)
@@ -71,6 +78,7 @@
 
 ## Project-Specific Patterns
 - Toledo TDB Dashboard: use Feature Teams model (parallel vertical features) not sequential phases
+- Toledo TDB Dashboard: maintain running count of decisions across documents (e.g., "24→25 decisions")
 - RAG/AI systems: provide interactive test scripts in scripts/interactive/ for manual validation
 - scientific projects: use environment variables for parametrized source locations (reproducibility)
 - scientific projects: validate outputs against thesis/reference after every pipeline change
