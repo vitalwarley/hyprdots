@@ -29,24 +29,49 @@ if [[ -n "$EXISTING_FILE" ]]; then
     exit 0
 fi
 
-# Snapshot existing diary files to detect what the skill creates
-BEFORE_NEWEST=$(ls -t "$DIARY_DIR"/${TODAY}-session-*.md 2>/dev/null | head -1)
+# Pre-compute the diary filename so we can check it directly after claude runs.
+# This avoids the before/after comparison which incorrectly re-attributes existing files.
+N=1
+while [[ -f "$DIARY_DIR/${TODAY}-session-${N}.md" ]]; do N=$((N+1)); done
+DIARY_FILE="$DIARY_DIR/${TODAY}-session-${N}.md"
 
-# Invoke the /diary skill — resumes the ended session to access its transcript.
-# Must cd to resume_dir (the directory Claude used as the project root) so --resume can find the session.
-# Use bypassPermissions mode since this runs in background without user interaction.
-(cd "$RESUME_DIR" && claude --resume "$SESSION_ID" -p /diary --model haiku --max-turns 5 --permission-mode bypassPermissions) 2>&1
+# Resume the ended session and write a diary entry directly to DIARY_FILE.
+# Uses an explicit write instruction rather than the /diary skill, which can produce
+# conversational output instead of a file when the session has been context-compacted.
+(cd "$RESUME_DIR" && claude --resume "$SESSION_ID" \
+    --model haiku --max-turns 5 --permission-mode bypassPermissions \
+    -p "Create a structured diary entry for this session and write it to: $DIARY_FILE
 
-# Detect the file created or updated by the skill
-AFTER_NEWEST=$(ls -t "$DIARY_DIR"/${TODAY}-session-*.md 2>/dev/null | head -1)
+Review the conversation history above and write a markdown file with this structure:
+# Session Diary Entry
 
-if [[ -n "$AFTER_NEWEST" && "$AFTER_NEWEST" != "$BEFORE_NEWEST" ]]; then
-    # Skill created a new file
-    DIARY_FILE="$AFTER_NEWEST"
-elif [[ -n "$AFTER_NEWEST" ]]; then
-    # Skill may have updated the existing newest file (re-run deduplication)
-    DIARY_FILE="$AFTER_NEWEST"
-else
+**Date**: $TODAY
+**Session ID**: $SESSION_ID
+**Project**: [project name from conversation]
+
+## Task Summary
+[2-3 sentences: what the user was trying to accomplish]
+
+## Work Summary
+- [bullet list of what was accomplished]
+
+## Design Decisions Made
+- [key decisions and why they were made]
+
+## Challenges Encountered
+- [errors, failed approaches, debugging steps]
+
+## Solutions Applied
+[how problems were resolved]
+
+## Notes
+[any other relevant observations]
+
+Use the Write tool to write directly to $DIARY_FILE. Do not ask for confirmation — just write the file.") 2>&1
+
+# Only proceed if the expected file was actually created with content.
+# If claude produced conversational output instead of creating the file, exit cleanly.
+if [[ ! -s "$DIARY_FILE" ]]; then
     rm -f "$META_FILE"
     exit 1
 fi
