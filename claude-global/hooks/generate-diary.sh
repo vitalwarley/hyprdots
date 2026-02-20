@@ -33,7 +33,8 @@ BEFORE_NEWEST=$(ls -t "$DIARY_DIR"/${TODAY}-session-*.md 2>/dev/null | head -1)
 
 # Invoke the /diary skill — uses JSONL fallback since session has ended.
 # The skill handles: transcript extraction, formatting, saving, and SESSIONS.md update.
-(cd "$CWD" && claude -p /diary --model haiku --max-turns 5) 2>&1
+# Use bypassPermissions mode since this runs in background without user interaction.
+(cd "$CWD" && claude -p /diary --model haiku --max-turns 5 --permission-mode bypassPermissions) 2>&1
 
 # Detect the file created or updated by the skill
 AFTER_NEWEST=$(ls -t "$DIARY_DIR"/${TODAY}-session-*.md 2>/dev/null | head -1)
@@ -51,8 +52,11 @@ fi
 
 # Append session ID metadata for deduplication on re-runs
 if [[ -s "$DIARY_FILE" ]]; then
-    echo "" >> "$DIARY_FILE"
-    echo "<!-- Session ID: $SESSION_ID -->" >> "$DIARY_FILE"
+    # Only append session ID if the file doesn't already have one
+    if ! grep -q "<!-- Session ID:" "$DIARY_FILE"; then
+        echo "" >> "$DIARY_FILE"
+        echo "<!-- Session ID: $SESSION_ID -->" >> "$DIARY_FILE"
+    fi
 
     # Append one-line entry to diary index
     INDEX_FILE="$DIARY_DIR/INDEX.md"
@@ -78,8 +82,9 @@ if [[ -s "$DIARY_FILE" ]]; then
 HEADER
     fi
 
-    # Update or append entry (remove previous entry for same session if re-running)
-    grep -v "$SESSION_ID" "$INDEX_FILE" > "${INDEX_FILE}.tmp" 2>/dev/null || true
+    # Update or append entry (remove all previous entries for this diary file by filename)
+    DIARY_BASENAME=$(basename "$DIARY_FILE")
+    grep -v "| $DIARY_BASENAME |" "$INDEX_FILE" > "${INDEX_FILE}.tmp" 2>/dev/null || true
     mv "${INDEX_FILE}.tmp" "$INDEX_FILE"
     echo "$ENTRY <!-- $SESSION_ID -->" >> "$INDEX_FILE"
 
