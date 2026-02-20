@@ -37,10 +37,23 @@ META_DIR="$HOME/.claude/memory/scratchpad"
 mkdir -p "$META_DIR"
 META_FILE="$META_DIR/${SESSION_ID}-meta.json"
 
-PROJECT_ROOT=$(git -C "$CWD" rev-parse --show-toplevel 2>/dev/null || echo "$CWD")
+# Find the directory --resume must be run from by walking up from CWD
+# and comparing each candidate's encoded form against the transcript's project dir name.
+# This works even when directory names contain hyphens (e.g. 1-projects, dev-tools).
+PROJ_DIR_NAME=$(basename "$(dirname "$TRANSCRIPT_PATH")")
+RESUME_DIR="$CWD"
+CANDIDATE="$CWD"
+while [[ "$CANDIDATE" != "/" ]]; do
+    ENCODED=$(echo "$CANDIDATE" | tr '/' '-')
+    if [[ "$ENCODED" == "$PROJ_DIR_NAME" ]]; then
+        RESUME_DIR="$CANDIDATE"
+        break
+    fi
+    CANDIDATE=$(dirname "$CANDIDATE")
+done
 
 cat > "$META_FILE" <<EOF
-{"transcript_path":"$TRANSCRIPT_PATH","cwd":"$CWD","project_root":"$PROJECT_ROOT","session_id":"$SESSION_ID"}
+{"transcript_path":"$TRANSCRIPT_PATH","cwd":"$CWD","resume_dir":"$RESUME_DIR","session_id":"$SESSION_ID"}
 EOF
 
 # Schedule diary generation 5 minutes from now.
