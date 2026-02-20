@@ -31,10 +31,10 @@ fi
 # Snapshot existing diary files to detect what the skill creates
 BEFORE_NEWEST=$(ls -t "$DIARY_DIR"/${TODAY}-session-*.md 2>/dev/null | head -1)
 
-# Invoke the /diary skill — uses JSONL fallback since session has ended.
+# Invoke the /diary skill — resumes the ended session to access its transcript.
 # The skill handles: transcript extraction, formatting, saving, and SESSIONS.md update.
 # Use bypassPermissions mode since this runs in background without user interaction.
-(cd "$CWD" && claude -p /diary --model haiku --max-turns 5 --permission-mode bypassPermissions) 2>&1
+(cd "$CWD" && claude --resume "$SESSION_ID" -p /diary --model haiku --max-turns 5 --permission-mode bypassPermissions) 2>&1
 
 # Detect the file created or updated by the skill
 AFTER_NEWEST=$(ls -t "$DIARY_DIR"/${TODAY}-session-*.md 2>/dev/null | head -1)
