@@ -37,8 +37,10 @@ META_DIR="$HOME/.claude/memory/scratchpad"
 mkdir -p "$META_DIR"
 META_FILE="$META_DIR/${SESSION_ID}-meta.json"
 
+PROJECT_ROOT=$(git -C "$CWD" rev-parse --show-toplevel 2>/dev/null || echo "$CWD")
+
 cat > "$META_FILE" <<EOF
-{"transcript_path":"$TRANSCRIPT_PATH","cwd":"$CWD","session_id":"$SESSION_ID"}
+{"transcript_path":"$TRANSCRIPT_PATH","cwd":"$CWD","project_root":"$PROJECT_ROOT","session_id":"$SESSION_ID"}
 EOF
 
 # Schedule diary generation 5 minutes from now.

@@ -10,6 +10,7 @@ fi
 
 TRANSCRIPT_PATH=$(jq -r '.transcript_path' "$META_FILE")
 CWD=$(jq -r '.cwd' "$META_FILE")
+PROJECT_ROOT=$(jq -r '.project_root // .cwd' "$META_FILE")
 SESSION_ID=$(jq -r '.session_id' "$META_FILE")
 
 if [[ ! -f "$TRANSCRIPT_PATH" ]]; then
@@ -32,9 +33,9 @@ fi
 BEFORE_NEWEST=$(ls -t "$DIARY_DIR"/${TODAY}-session-*.md 2>/dev/null | head -1)
 
 # Invoke the /diary skill — resumes the ended session to access its transcript.
-# The skill handles: transcript extraction, formatting, saving, and SESSIONS.md update.
+# Must cd to the git project root (not CWD subdirectory) so --resume can locate the session.
 # Use bypassPermissions mode since this runs in background without user interaction.
-(cd "$CWD" && claude --resume "$SESSION_ID" -p /diary --model haiku --max-turns 5 --permission-mode bypassPermissions) 2>&1
+(cd "$PROJECT_ROOT" && claude --resume "$SESSION_ID" -p /diary --model haiku --max-turns 5 --permission-mode bypassPermissions) 2>&1
 
 # Detect the file created or updated by the skill
 AFTER_NEWEST=$(ls -t "$DIARY_DIR"/${TODAY}-session-*.md 2>/dev/null | head -1)
