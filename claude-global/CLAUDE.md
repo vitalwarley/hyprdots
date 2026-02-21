@@ -112,12 +112,11 @@ See `/predict` skill for full workflow.
 - Connections between current work and architectural decisions
 Avoid generic programming insights the user likely already knows.
 
-### Active Recall Protocol
-When a session start hook outputs recall context:
-- Offer the user 2-3 recall questions before proceeding
-- Use back-and-forth discussion format — if they get something wrong, explain and probe deeper
-- Generate mermaid diagrams on-the-fly when architecture or data flow is involved
-- Accept "skip" gracefully and proceed to their request
+### Session Onboarding Protocol
+Use `/menu` to see project context and available actions. It runs `session-router.sh` which gathers signals (learning, git state, PRs, milestones, diary backlog, scaffolding gaps) and presents a formatted menu grouped by intent: Learn > Resume > Next > Create > Maintain.
+- If user picks a menu option: invoke the corresponding command/skill
+- If user sends a direct task: proceed without the menu
+- "Skip" or equivalent: proceed without action
 
 ## Visual Communication
 - use mermaid diagrams (not ASCII art)
