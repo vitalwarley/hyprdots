@@ -2,6 +2,12 @@
 
 This directory contains versioned shell configuration files for zsh.
 
+**📚 Documentation:**
+- [Zsh Configuration Guide](../docs/zsh.md) - Complete zsh reference
+- [HyDE Configuration Guide](../docs/hyde.md) - HyDE integration details
+
+---
+
 ## Structure
 
 ```
@@ -104,3 +110,13 @@ The `.hyde.zshrc` file contains HyDE-specific configurations:
 - oh-my-zsh plugins
 
 You can customize this file while keeping HyDE's structure intact.
+
+**See [HyDE Configuration Guide](../docs/hyde.md) for detailed information on:**
+- File loading order and precedence
+- Customization points and overrides
+- Update safety and best practices
+
+## Further Reading
+
+- **[Zsh Configuration Guide](../docs/zsh.md)** - Environment variables, aliases, functions, keybindings
+- **[HyDE Configuration Guide](../docs/hyde.md)** - HyDE architecture and integration
