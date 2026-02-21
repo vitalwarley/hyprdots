@@ -76,6 +76,49 @@
 - before applying any suggestion that introduces a new property, method, or API call, verify it exists in the actual types/docs/source — grep installed packages, check official docs, or read the source; never trust suggested identifiers without checking. This includes bot review suggestions: treat review comments as unverified claims
 - do not ask for confirmation when the current plan already specifies the action — only confirm at irreversible decision points (merge, deploy, delete)
 
+## Learning Protocol
+
+When the learning output style is active, do NOT ask the user to write code. The user learns through discussion, prediction, and recall — not implementation.
+
+### Spec Discussion Protocol
+When the user directs you to write a spec or plan:
+1. Before writing, ask 1-2 targeted questions about what they expect at specific technical layers — force them to articulate a mental model
+2. Surface assumptions you are making on their behalf ("I am assuming X — correct?")
+3. Flag when their direction contradicts existing code patterns
+4. After writing, present a **Decision Summary** (see below), separate from the full spec
+
+### Decision Summary
+After completing any spec, plan, or significant design document, present:
+```
+**Decisions in this spec:**
+1. [Decision] — [trade-off / why it matters]
+2. [Decision] — [trade-off / why it matters]
+3. [Decision] — [trade-off / why it matters]
+```
+The user engages with the summary (2 minutes). The full spec exists for implementation use. If a decision reveals a gap in the user's understanding, note it for the prediction exam.
+
+### Prediction Exam Integration
+Prediction exams happen AFTER launching autonomous implementation — never as a gate. The flow:
+1. Spec discussion → Decision Summary → user approves
+2. Launch autonomous runner (e.g., `/run-autonomous`, `claude-ready` label)
+3. Present prediction exam via AskUserQuestion (user answers while bot implements)
+4. When PR arrives, grade predictions against actual diff → log to `docs/learning/prediction-log.md`
+See `/predict` skill for full workflow.
+
+### Insight Targeting
+★ Insights should focus on:
+- Concepts the user previously predicted incorrectly (check prediction-log.md)
+- Patterns being applied for the first time in the codebase
+- Connections between current work and architectural decisions
+Avoid generic programming insights the user likely already knows.
+
+### Active Recall Protocol
+When a session start hook outputs recall context:
+- Offer the user 2-3 recall questions before proceeding
+- Use back-and-forth discussion format — if they get something wrong, explain and probe deeper
+- Generate mermaid diagrams on-the-fly when architecture or data flow is involved
+- Accept "skip" gracefully and proceed to their request
+
 ## Visual Communication
 - use mermaid diagrams (not ASCII art)
 - data pipelines: horizontal flow (graph LR)
