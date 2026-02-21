@@ -51,11 +51,6 @@ export PATH="/opt/flutter/bin:$PATH"
 export PATH="$PATH:/opt/flutter/bin/cache/dart-sdk/bin"
 
 # ============================================================================
-# SSH Configuration
-# ============================================================================
-# SSH Agent socket for systemd user service
-export SSH_AUTH_SOCK=/run/user/1000/ssh-agent.socket
-
 # ============================================================================
 # Aliases
 # ============================================================================
