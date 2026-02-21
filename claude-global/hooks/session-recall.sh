@@ -17,16 +17,18 @@ fi
 PREDICTION_LOG="$LEARNING_DIR/prediction-log.md"
 CONCEPTS_DIR="$LEARNING_DIR/concepts"
 
-# Count unresolved prediction gaps
+# Count unresolved prediction gaps (table cells: "| WRONG |")
 PENDING_GAPS=0
 if [[ -f "$PREDICTION_LOG" ]]; then
-    PENDING_GAPS=$(grep -c "WRONG" "$PREDICTION_LOG" 2>/dev/null || echo 0)
+    PENDING_GAPS=$(grep -c "| WRONG |" "$PREDICTION_LOG" 2>/dev/null || true)
+    PENDING_GAPS=${PENDING_GAPS:-0}
 fi
 
 # Count pending predictions (not yet graded)
 PENDING_EXAMS=0
 if [[ -f "$PREDICTION_LOG" ]]; then
-    PENDING_EXAMS=$(grep -c "Status.*Pending" "$PREDICTION_LOG" 2>/dev/null || echo 0)
+    PENDING_EXAMS=$(grep -c "^\*\*Status\*\*: Pending" "$PREDICTION_LOG" 2>/dev/null || true)
+    PENDING_EXAMS=${PENDING_EXAMS:-0}
 fi
 
 # Count available concept briefs
