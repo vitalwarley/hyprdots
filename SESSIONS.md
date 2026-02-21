@@ -49,3 +49,11 @@ Added screenpipe .desktop entry and environment.d/path.conf for session-wide PAT
 **File**: [.sessions/claude/20260211-093658-fix-hyde-env-path-clobber.md](.sessions/claude/20260211-093658-fix-hyde-env-path-clobber.md)
 
 Fixed HyDE's `env.zsh` clobbering PATH entries from `conf.d` scripts (nvm node bin from `01-dev-paths.zsh`). Added `_HYDE_ENV_SOURCED` source guard and idempotent PATH prepend. Created reapplyable `shell/patch-hyde-env.sh` for after `hyde update`. Added CHANGELOG.md to the repo.
+
+---
+
+## [2026-02-12] Hyprland IDE Opacity Configuration
+
+**File**: [.sessions/claude/20260212-154014-hyprland-ide-opacity.md](.sessions/claude/20260212-154014-hyprland-ide-opacity.md)
+
+Made Cursor IDE and other IDEs fully opaque (1.00) in Hyprland window rules by adding HyDE's `$&` override flag to bypass global opacity settings (0.9/0.75). Added rules for Cursor, VS Code variants, and JetBrains IDE suite. Discovered that windowrulev2 is deprecated and global opacity silently overrides window rules without override flag.

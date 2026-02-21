@@ -1,0 +1,1 @@
+- Last chat: Your changes in @chromium-flags.conf seems to fix this, but brave didn't need (I oppened it before the changes). Using to see.
