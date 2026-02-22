@@ -46,6 +46,22 @@ ls docs/plans/
 
 Read the resolved plan file. Extract the milestone name from the `**Milestone**:` line.
 
+### Check for Issues
+
+First, determine if issues exist for this plan's steps. Scan the plan for step table rows — if any have `TBD` in the Issue column (no GitHub issue created yet):
+
+1. Check if the plan has a waves/execution section with step definitions
+2. If steps exist but issues are `TBD` → offer to create them:
+   - "This plan has N steps without GitHub issues. Run `/create-issues` to create them?"
+   - If user confirms → invoke `/create-issues` with the plan path
+   - After issues are created, continue below with the now-populated issue numbers
+
+If a `**Milestone**:` line exists, also verify the milestone exists on GitHub:
+```bash
+gh api repos/:owner/:repo/milestones --jq '.[] | select(.title == "<milestone_name>") | .title' 2>/dev/null
+```
+If milestone doesn't exist, note it — `/create-issues` can create it.
+
 ### Determine Next Task
 
 Check GitHub issue status using the extracted milestone name:
@@ -54,7 +70,14 @@ Check GitHub issue status using the extracted milestone name:
 gh issue list --milestone "<milestone_name>" --json number,title,state --jq '.[] | "\(.number) \(.title) [\(.state)]"'
 ```
 
+If no milestone exists but the plan has issue numbers, check issues directly:
+```bash
+gh issue view <N> --json state --jq '.state'
+```
+
 Identify the next uncompleted step in the build order. If a step is partially done, check git log and session docs for context.
+
+**Wave awareness**: If the plan defines waves, respect wave boundaries. Don't suggest a Wave 2 step if any Wave 1 step is still open. Present the next available step(s) within the current wave, noting which can run in parallel.
 
 ### Present and Confirm
 
