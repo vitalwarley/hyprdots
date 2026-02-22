@@ -8,6 +8,7 @@
 - user runs Arch Linux (pacman, rolling-release) — never assume Debian/Ubuntu package management
 - Add "2>&1" to docker logs commands to capture both stdout and stderr
 - docker-compose up -V (renew anonymous volumes) when container dependencies change — stale volumes cause phantom "module not found"
+- shell scripts matching project names in delimited files: use awk with field-specific matching, not grep — grep matches across all columns and overcounts
 - Always run python with 'uv run' first.
 - Dockerfile: use `--no-editable` for pip install in containers — editable installs cached in named volumes survive code restructuring and cause stale imports
 
@@ -75,6 +76,7 @@
 - verify technical claims (bug fixes, performance improvements) with reproducible tests before documenting in PRs/issues
 - before applying any suggestion that introduces a new property, method, or API call, verify it exists in the actual types/docs/source — grep installed packages, check official docs, or read the source; never trust suggested identifiers without checking. This includes bot review suggestions: treat review comments as unverified claims
 - do not ask for confirmation when the current plan already specifies the action — only confirm at irreversible decision points (merge, deploy, delete)
+- Claude Code hooks inject context, not trigger actions — use explicit commands (/menu, /next) for behavior that must present content to the user
 
 ## Learning Protocol
 
