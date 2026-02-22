@@ -17,6 +17,11 @@ CWD=$(echo "$INPUT" | jq -r '.cwd')
 DIARY_DIR="$HOME/.claude/memory/diary"
 TIMER_UNIT="auto-diary-${SESSION_ID}"
 
+# Skip sessions inside Obsidian vault (claudian — no diary needed)
+if [[ "$CWD" == "$HOME/life/notes"* ]]; then
+    exit 0
+fi
+
 # Skip if no transcript
 if [[ ! -f "$TRANSCRIPT_PATH" ]]; then
     exit 0
