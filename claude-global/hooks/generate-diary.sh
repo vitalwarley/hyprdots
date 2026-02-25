@@ -16,8 +16,6 @@ if [[ ! -f "$META_FILE" ]]; then
 fi
 
 TRANSCRIPT_PATH=$(jq -r '.transcript_path' "$META_FILE")
-CWD=$(jq -r '.cwd' "$META_FILE")
-RESUME_DIR=$(jq -r '.resume_dir // .cwd' "$META_FILE")
 SESSION_ID=$(jq -r '.session_id' "$META_FILE")
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")/../scripts"
 
@@ -151,7 +149,7 @@ Use the Write tool to write directly to $DIARY_FILE. Do not ask for confirmation
 fi
 
 # --- Generate diary ---
-(cd "$RESUME_DIR" && echo "$DIARY_PROMPT" | claude \
+(cd /tmp && echo "$DIARY_PROMPT" | claude \
     --model haiku --max-turns 5 --permission-mode bypassPermissions \
     --allowedTools Write \
     -p) 2>&1
