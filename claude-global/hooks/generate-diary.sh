@@ -17,7 +17,15 @@ fi
 
 TRANSCRIPT_PATH=$(jq -r '.transcript_path' "$META_FILE")
 SESSION_ID=$(jq -r '.session_id' "$META_FILE")
+CWD=$(jq -r '.cwd // empty' "$META_FILE")
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")/../scripts"
+
+# Derive project name from cwd (last path component, or second-to-last/last for nested projects)
+if [[ -n "$CWD" ]]; then
+    PROJECT_NAME=$(basename "$CWD")
+else
+    PROJECT_NAME=""
+fi
 
 if [[ ! -f "$TRANSCRIPT_PATH" ]]; then
     rm -f "$META_FILE"
@@ -88,11 +96,30 @@ if [[ -z "$PARSED" ]]; then
 fi
 
 # --- Build prompt ---
-DIARY_TEMPLATE="# Session Diary Entry
+if [[ "$CWD" == "$HOME/life/notes"* ]]; then
+    DIARY_TEMPLATE="# Session Diary Entry
 
 **Date**: $TODAY
 **Session ID**: $SESSION_ID
-**Project**: [project name from conversation]
+**Project**: notes (vault)
+
+## Topics Discussed
+- [main topics and themes explored]
+
+## Conclusions
+- [decisions reached, answers found, insights gained]
+
+## Open Questions
+- [unresolved questions, things to explore later]
+
+## Notes
+[any other relevant observations]"
+else
+    DIARY_TEMPLATE="# Session Diary Entry
+
+**Date**: $TODAY
+**Session ID**: $SESSION_ID
+**Project**: ${PROJECT_NAME:-[infer from conversation]}
 
 ## Task Summary
 [2-3 sentences: what the user was trying to accomplish]
@@ -111,6 +138,7 @@ DIARY_TEMPLATE="# Session Diary Entry
 
 ## Notes
 [any other relevant observations]"
+fi
 
 if [[ -n "$PREV_DIARY_CONTENT" ]]; then
     DIARY_PROMPT="You are generating a FOLLOW-UP diary entry for a session that continued after a previous diary was written.
