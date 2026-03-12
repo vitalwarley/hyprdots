@@ -1,0 +1,10 @@
+[Unit]
+Description=Poll Cursor transcripts every 2 minutes for diary generation
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=2min
+AccuracySec=30s
+
+[Install]
+WantedBy=timers.target

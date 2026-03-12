@@ -1,0 +1,6 @@
+[Unit]
+Description=Poll Cursor agent transcripts for diary generation
+
+[Service]
+Type=oneshot
+ExecStart=%h/.claude/hooks/cursor-diary-poll.sh
