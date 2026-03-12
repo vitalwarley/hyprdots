@@ -21,6 +21,7 @@ The autonomous run is a **tool**, not a session — it does NOT get its own diar
 /run-autonomous Implement issue #42 --max-turns 30
 /run-autonomous Refactor auth module to use Strategy pattern --max-turns 20 --base develop
 /run-autonomous Run the full test suite and fix any failures --project ~/life/1-projects/noux
+/run-autonomous "Fix review findings from attack plan" --pr 128 --max-turns 30
 ```
 
 ## Workflow
@@ -32,6 +33,7 @@ Extract from `$ARGUMENTS`:
 - **--max-turns N**: turn limit (default: 10)
 - **--project PATH**: project directory (default: current working directory)
 - **--base BRANCH**: PR target branch (auto-detected from git remote HEAD if omitted)
+- **--pr N**: work on an existing PR's branch instead of creating a new one. Fetches branch/base from `gh pr view`. Pushes new commits to the existing branch and comments on the PR instead of creating a new one.
 
 **Issue number detection**: If the prompt is a bare number (e.g., `130`) or `#N` pattern, treat it as a GitHub issue reference:
 
@@ -106,16 +108,15 @@ Phase 1: Implement → Phase 2: Review → Phase 3: Fix → Phase 2b: Re-review 
 ```
 
 **Phase 1 — Implement** (full `--max-turns` budget):
-- Reads the issue, writes code, gets lint passing
+- Reads any convention files in `docs/` (e.g., `CONVENTIONS.md`, `ARCH_CONVENTIONS.md`) if they exist, then reads the issue, writes code, gets lint passing
 - Does NOT commit, push, or create PR
 - Leaves changes staged/unstaged for phase 2
 
-**Phase 2 — Review** (`--max-turns / 3`):
+**Phase 2 — Review** (`--max-turns / 2`):
 - Fresh read-only Claude invocation — does NOT modify code
-- Verifies contract correctness: field names, type shapes, Pydantic↔TypeScript parity
-- Verifies test fixtures match actual data shapes
-- Checks no untyped dicts at API boundaries
-- Writes structured findings file (BLOCKING / NON-BLOCKING) to `.claude-review/`
+- Launches `pr-review-toolkit:*` sub-agents in parallel (code-reviewer, silent-failure-hunter, type-design-analyzer if new types, comment-analyzer if new comments)
+- Also performs contract verification: field names, type shapes, Pydantic↔TypeScript parity, test fixture accuracy, no untyped dicts at API boundaries
+- Synthesizes all findings into structured findings file (BLOCKING / NON-BLOCKING) to `.claude-review/`
 
 **Phase 3 — Fix** (`--max-turns / 3`, skipped if no BLOCKING findings):
 - Reads the findings file, fixes each BLOCKING issue
@@ -134,6 +135,16 @@ Phase 1: Implement → Phase 2: Review → Phase 3: Fix → Phase 2b: Re-review 
 
 **Why separate invocations?** The reviewer must not fix its own findings. Separating review (read-only) from fix (write) enforces honest reporting — the reviewer has no incentive to minimize findings.
 
+#### PR Mode (`--pr N`)
+
+When `--pr` is specified, the workflow differs:
+- **Clone**: checks out the PR's existing branch (not base + new branch)
+- **Implement**: same — makes changes on the PR branch
+- **Review/Fix**: same — multi-agent review and fix cycle
+- **Commit**: pushes new commits to the existing branch, does NOT create a new PR. Instead, adds a PR comment summarizing the changes.
+
+This is useful for acting on review findings, attack plans, or requested changes on an open PR.
+
 ### 4. Report to User
 
 After launching, immediately report.
@@ -149,7 +160,7 @@ Autonomous session launched in background.
   Base:       <base-branch>
   Prompt:     <prompt>
   Phase 1:    implement (<N> turns)
-  Phase 2:    review (<N/3> turns)
+  Phase 2:    review/multi-agent (<N/2> turns)
   Phase 3:    fix (<N/3> turns)
   Phase 2b:   re-review (<N/4> turns)
   Commit:     (<N/4> turns)
