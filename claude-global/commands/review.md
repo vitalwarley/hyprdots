@@ -49,7 +49,32 @@ gh pr diff <number>
 
 If diff is empty, inform user and exit.
 
-### 2. Launch Parallel Analysis Agents
+### 2. Cross-Environment Context Gathering
+
+Before forming opinions, gather context that cuts across environments. This step prevents the anchoring bias of reviewing config in isolation.
+
+**For infrastructure/config changes** (K8s manifests, docker-compose, Dockerfiles, .env):
+- Find all equivalent config files across environments (grep for the same service/setting in `docker-compose.*`, `k8s/`, `.env.*`)
+- Compare the PR's config against existing environments — flag divergences, justify parity
+- Grep the codebase for actual usage of features/permissions being added or changed
+
+**For permission/security changes** (allowlists, RBAC, procedure access, IAM):
+- Identify every code path that uses the permission being changed
+- Check official docs for whether a proposed restriction would break functionality
+- Only recommend restricting permissions after confirming safety via code + docs
+
+**For dependency/version changes**:
+- Check if the dependency appears in other config files (requirements.txt, pyproject.toml, package.json, Dockerfile)
+- Verify version consistency across environments
+
+**For bot review comments** (Copilot, Gemini, CodeRabbit, etc.):
+- Read all bot comments on the PR
+- Treat each as an unverified claim — verify against code and official docs before agreeing or disagreeing
+- Explicitly state when a bot comment is incorrect and why
+
+Skip this step entirely if the diff is pure application code with no config/infra changes and no bot comments.
+
+### 3. Launch Parallel Analysis Agents
 
 Use the Task tool to launch these agents **in parallel**:
 
@@ -73,7 +98,7 @@ Use the Task tool to launch these agents **in parallel**:
 - Check accuracy against implementation
 - Skip if no meaningful comment changes
 
-### 3. Synthesize Report
+### 4. Synthesize Report
 
 Combine all agent outputs into a single structured report.
 
@@ -132,7 +157,7 @@ Example:
 > **[src/api/auth.py:42]** Replace bare `except:` with `except ValueError:` — current code swallows all exceptions including KeyboardInterrupt.
 ```
 
-### 4. Optionally Save Report
+### 5. Optionally Save Report
 
 If reviewing a branch or PR (not just local changes), offer to save:
 
