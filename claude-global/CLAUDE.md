@@ -1,5 +1,12 @@
+## Claude Code Config Layout
+- **MCP servers** → `~/.claude.json` (global, user scope) or `.mcp.json` (project scope) — `settings.json` accepts the field but CLI ignores it
+- **Everything else** (hooks, permissions, plugins, statusLine) → `~/.claude/settings.json`
+- **Per-project permissions** → `<project>/.claude/settings.local.json`
+- Agent SDK (Claudian, etc.) reads MCP servers from `~/.claude.json` — same as CLI
+
 ## Claude Tooling (commands, skills, hooks)
 - all commands (`~/.claude/commands/`), skills (`~/.claude/skills/`), and hooks (`~/.claude/hooks/`) are symlinks to `~/life/2-areas/dev-tools/hyprdots/claude-global/` — source of truth is git-tracked there
+- systemd user units (`~/.config/systemd/user/`) are symlinks to `~/life/2-areas/dev-tools/hyprdots/.config/systemd/user/` — same git-tracked pattern
 - to edit: use Edit tool (follows symlink, edits the versioned file directly)
 - if Write tool is used on a command/skill/hook, it replaces the symlink with a plain file — must re-create the symlink afterward: `ln -sf <hyprdots-path> <global-path>`
 - canonical layout: `docs/workflows/auto-diary.md` documents the full hook/skill wiring
@@ -20,6 +27,7 @@
 - when editing docs/decisions, preserve existing content — add new options alongside, never replace original analysis
 - save research as markdown artifacts (e.g., docs/discovery/) — never leave research only in conversation
 - Portuguese for team-facing communication (GitHub comments, sprint reports, internal docs); English for code and technical documentation
+- learning docs (`docs/learning/`) must always include mermaid diagrams to visualize concepts — sequence diagrams for async flows, flowcharts for decision logic, etc.
 
 ## Research & Decision-Making
 - for architecture/design decisions, perform web searches for current (2026) industry best practices
@@ -39,6 +47,8 @@
 - read project-specific development guidelines (commit format, PR template, branch naming) before any git operation — project conventions override global rules
 - separate branches per concern: never mix documentation, tooling, and feature changes in one branch
 - when creating PRs from feature branches, explicitly verify and pass `--base` to avoid targeting wrong branch
+- GitHub user-attachment images require authentication — use `gh api <url>` to download them, not `curl` or `WebFetch` (both get 404)
+- edit PR review body: `gh api repos/{owner}/{repo}/pulls/{pr}/reviews/{review_id} --method PUT --field body="..."`
 
 ## Diagnostic Protocol
 - when a bug involves data shape mismatch (wrong fields, missing keys, unexpected structure): trace the data from origin through persistence to consumption BEFORE proposing any fix — the fix should address why the shapes diverge, not just which property to read
@@ -75,12 +85,28 @@
 - when building enumerative lists, explicitly ask "what am I missing?" rather than presenting as complete
 - verify technical claims (bug fixes, performance improvements) with reproducible tests before documenting in PRs/issues
 - before applying any suggestion that introduces a new property, method, or API call, verify it exists in the actual types/docs/source — grep installed packages, check official docs, or read the source; never trust suggested identifiers without checking. This includes bot review suggestions: treat review comments as unverified claims
+- PR review: before agreeing with bot comments, verify the claim against actual code and cross-environment config (docker-compose.*, k8s/*, .env.example); never propose restricting a permission without confirming no code path needs it; check official docs for tools/plugins before suggesting config changes
 - do not ask for confirmation when the current plan already specifies the action — only confirm at irreversible decision points (merge, deploy, delete)
 - Claude Code hooks inject context, not trigger actions — use explicit commands (/menu, /next) for behavior that must present content to the user
+- autonomous agents: embed critical rules in task prompts directly — CLAUDE.md context has lower salience than immediate instructions
+- autonomous agents: detect changes with git diff + git diff --cached + git ls-files --others — any positive triggers phase continuation
+- GitHub issues: update issue body when decisions change — comments are evolution log, not source of truth
+- weekly doc sync: when specs and implementation diverge, update spec first then propagate to dependent docs (attack plan → issues → data-sources)
+- lint auto-fix: review diffs for side-effect imports and architectural wiring before accepting
 
 ## Learning Protocol
 
 When the learning output style is active, do NOT ask the user to write code. The user learns through discussion, prediction, and recall — not implementation.
+
+### Socratic Teaching Rule
+When studying a plan/concept with the user: NEVER deliver the answer immediately after asking a question. Instead:
+1. Ask the question
+2. Wait for the user's attempt
+3. If the user asks for explanation, give progressive hints — not the full answer
+4. Only deliver the complete explanation when the user explicitly asks for it or after they've attempted reasoning
+This applies to all conceptual questions, not just spec discussions.
+
+**Application**: During plan review sessions, after asking a clarifying question (e.g., "Why `asyncio.create_task` over `BackgroundTasks`?"), wait for the user's response. Do NOT immediately answer your own question and continue with analysis. If the user asks "Explique", provide a concise explanation with 1-2 progressive hints, not the full answer. Only give the complete explanation when they explicitly ask for it (e.g., "Me explica por completo").
 
 ### Spec Discussion Protocol
 When the user directs you to write a spec or plan:
@@ -135,3 +161,5 @@ Use `/menu` to see project context and available actions. It runs `session-route
 - ML pipelines: verify inference preprocessing (image size, normalization) matches training configuration before trusting outputs
 - LLM tool calling: use decorator-based schema generation from function signatures, not hand-written JSON schemas
 - RAG: skip vector DB when knowledge base fits in context window — use direct context injection with keyword matching
+- data validation: prefer explicit whitelists over heuristics for enum classification
+- multi-person milestones: create explicit responsibility matrix before parallel execution
