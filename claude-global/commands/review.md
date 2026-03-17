@@ -49,6 +49,18 @@ gh pr diff <number>
 
 If diff is empty, inform user and exit.
 
+### 1.5. Load Prior State
+
+Before forming any opinions, check if this is a continuation of prior work:
+
+- **Prior review artifacts**: Check `docs/reviews/` for existing reports on the same PR/branch. Read them in full — they contain findings, decisions, and fix guides that inform this round.
+- **PR review history**: For `pr` scope, read all prior review bodies and comments (`gh pr view <number> --json reviews`). Understand what was already requested and what was fixed.
+- **Spec/plan referenced**: If the prior review links a spec, read it to understand the contract being reviewed against.
+
+**Why this matters**: Without prior state, you re-derive context from scratch — slower, and risks contradicting decisions already made. Iterative artifacts accumulate decisions; ignoring them means reviewing in a vacuum.
+
+**For first reviews**: Skip this step. For subsequent rounds: the prior review is as important as the diff itself.
+
 ### 2. Cross-Environment Context Gathering
 
 Before forming opinions, gather context that cuts across environments. This step prevents the anchoring bias of reviewing config in isolation.
@@ -87,6 +99,7 @@ Use the Task tool to launch these agents **in parallel**:
 - Identify swallowed errors, empty catch blocks
 - Check for inappropriate fallback behavior
 - Flag missing error propagation
+- **Analyze try-block scope**: check what *all* is inside each try block, not just the except handler. If unrelated operations (logging, caching, metrics) share a try block with the core operation, a failure in the secondary operation can incorrectly trigger the error path for the primary one.
 
 **c. Type Design Analysis** (pr-review-toolkit:type-design-analyzer)
 - Only if new types/interfaces are introduced
@@ -140,6 +153,62 @@ Combine all agent outputs into a single structured report.
 ### Comment Quality
 <Summarized findings from comment-analyzer, or "No significant comment changes">
 
+## Image Evaluation
+
+Screenshots attached to the PR, evaluated against spec/design expectations.
+
+| Screenshot | What it shows | Expected | Matches? | Notes |
+|------------|---------------|----------|----------|-------|
+| `screenshot.png` | What the screenshot depicts | What spec/design requires | ✅/⚠️/❌ | Details |
+
+*If no screenshots attached: "No screenshots provided — request from PR author if UI changes are involved."*
+*Omit this section entirely if the PR has no UI changes.*
+
+## Spec Compliance
+
+Cross-reference implementation against the PRD/spec requirements.
+
+| Requirement (from spec) | Status | Evidence | Gap |
+|--------------------------|--------|----------|-----|
+| Requirement text | ✅/❌ | How verified | Missing feature or — |
+
+*Source: link to PRD/spec section. Omit this section if no spec exists for the work.*
+
+## Previous Review Findings
+
+Track status of findings from prior review rounds on the same PR/branch.
+
+| ID | Finding (from round N) | Status | Resolution |
+|----|------------------------|--------|------------|
+| R1-C1 | Finding description | ✅ Resolved / ⏳ Pending | Commit hash or reason |
+
+*First review: omit this section. Subsequent reviews: carry forward all prior findings.*
+
+## Bot Comments Verification
+
+Automated review comments (Gemini, CodeRabbit, etc.) verified against actual code.
+
+| Bot | Comment | Claim | Verified? | Verdict |
+|-----|---------|-------|-----------|---------|
+| bot-name | Comment summary | What it claims | ✅/❌ | Action taken or why wrong |
+
+*Rule: never agree with a bot comment without verifying — treat as unverified claim.*
+
+## Finding Provenance (for round 2+ reviews)
+
+Classify each new finding by origin to surface review process failures:
+
+| Finding | Origin | Explanation |
+|---------|--------|-------------|
+| ID | pre-existing / review-induced / genuinely new | Why it wasn't caught before, or how a prior fix created it |
+
+**Origin categories**:
+- **Pre-existing**: Was in the original code but missed in prior rounds. Root-cause the gap (depth of analysis? wrong focus area? no grep for anti-pattern?).
+- **Review-induced**: Created by following a prior round's fix guide. This is a review failure — the fix guide was imprecise, didn't check propagation, or prescribed mechanism without principle.
+- **Genuinely new**: Appeared in commits made since the last review (new code, not a response to review feedback).
+
+*Omit this section on first review. On subsequent rounds, every new finding MUST be classified.*
+
 ## Verdict
 
 [ ] Ready to merge
@@ -150,14 +219,32 @@ Combine all agent outputs into a single structured report.
 
 For each fixable finding, provide:
 1. **File and line** — exact location
-2. **What to change** — concrete fix description (not just "consider improving")
-3. **Why** — what breaks or degrades without the fix
+2. **Principle** — the design rule being violated (e.g., "single source of truth", "fail visibly")
+3. **What to change** — concrete fix description (not just "consider improving")
+4. **Propagation check** — other locations where the same anti-pattern may exist (grep result or "checked, no other instances")
+5. **Why** — what breaks or degrades without the fix
+
+**Fix guide rules**:
+- State the **principle first**, then the mechanism. A fix guide that says "use Literal" when an enum already exists teaches the wrong lesson. Say "single source of truth for status values — use the existing `JobStatus` enum" so the dev understands *why*, not just *what*.
+- When a fix changes a pattern in one file, **grep the diff for the same anti-pattern** in other files. Fixing one side of an inconsistency without checking the other creates a new inconsistency.
+- Never suggest an implementation without verifying it exists (types, methods, APIs). The fix guide is a contract — if the dev follows it literally and it introduces a new problem, that's a review failure.
 
 Example:
-> **[src/api/auth.py:42]** Replace bare `except:` with `except ValueError:` — current code swallows all exceptions including KeyboardInterrupt.
+> **[src/api/auth.py:42]** *Principle: fail visibly — exceptions should propagate or be logged, never swallowed.* Replace bare `except:` with `except ValueError:` — current code swallows all exceptions including KeyboardInterrupt. *Propagation: grep found no other bare `except:` in diff.*
 ```
 
-### 5. Optionally Save Report
+### 5. Update Conventions
+
+If any finding reveals a pattern that should be codified for the team:
+
+- Check if a project-level conventions doc exists (`docs/CONVENTIONS.md` or similar)
+- If a finding matches an existing convention: note that the convention was violated (the dev should have caught it)
+- If a finding reveals a **new** pattern not yet codified: add it to the conventions doc
+- If a prior convention was **wrong or incomplete** (e.g., caused a review-induced finding): update it
+
+Convention updates are part of the review's output — they prevent the same finding from recurring in future PRs.
+
+### 6. Optionally Save Report
 
 If reviewing a branch or PR (not just local changes), offer to save:
 
@@ -182,9 +269,55 @@ Only save if user confirms — most reviews are consumed immediately.
 /wrap-up → commit and ship
 ```
 
+## Review Termination Rules
+
+Reviews must converge. Without stopping rules, each round's fixes create surface area for the next round — diminishing returns that block shipping.
+
+### When to stop
+
+A PR is **ready to merge** when ALL hold:
+
+1. **No critical findings** — nothing that causes data loss, security vulnerability, or silent corruption
+2. **No warnings from the current round** — all warnings either fixed or explicitly deferred with rationale
+3. **Review-induced findings are resolved** — if a prior fix guide introduced a new issue, fix it in the same round (reviewer's responsibility, not the dev's)
+
+### Maximum rounds
+
+- **Hard cap: 3 rounds of code changes** (R1 review → fixes → R2 review → fixes → R3 review → fixes → final verification)
+- The "final check" after round 3 fixes is a **verification pass only** — confirm fixes landed, no new findings. If new issues appear, they go to a follow-up PR/issue unless critical
+- If round 3 still has critical findings, escalate to synchronous discussion (call/pairing) instead of another async round
+
+### What counts as a "round"
+
+- A round = review + fix commit(s). Counted by fix cycles, not review comments
+- Multiple review comments in a single GitHub review = 1 round
+- Fixup commits addressing the same review = still the same round
+
+### Deferral rules by round
+
+| Round | Critical | Warnings | Suggestions |
+|-------|----------|----------|-------------|
+| 1 | Must fix | Must fix | Fix or defer |
+| 2 | Must fix | Must fix | Defer to follow-up |
+| 3+ | Must fix | Fix or defer (with rationale) | Defer to follow-up |
+
+### Fix guide discipline (prevents review-induced findings)
+
+When writing a fix guide that restructures error handling (try/except boundaries, error propagation):
+1. Verify all moved code lands in a protected block or is provably infallible
+2. Check that callbacks/lifecycle hooks account for new failure modes
+3. State the **principle** first, then the mechanism — so the dev can adapt if the mechanism doesn't fit
+
+**Provenance**: PR #127 produced 3 review-induced findings across 4 rounds. Common cause: fix guides that prescribed mechanism without verifying full consequence of structural changes.
+
 ## Anti-Patterns
 
 - Don't review files that weren't changed — focus on the diff
 - Don't run all 4 agents if the change is 5 lines — use judgment
 - Don't block on suggestions — only Critical findings are blockers
 - Don't duplicate what CI already catches (lint, format, type-check)
+- Don't skip Step 1.5 on iterative reviews — re-deriving context from scratch is slower and risks contradicting prior decisions
+- Don't prescribe mechanism without principle in fix guides — "use Literal" without "because single source of truth" leads to review-induced bugs
+- Don't fix a pattern in one file without grepping for the same pattern elsewhere in the diff — partial fixes create new inconsistencies
+- Don't focus only on the `except` handler — always check what's inside the `try` block and whether unrelated operations share the same error path
+- Don't start a new round after the 3-round cap — defer to follow-up PR/issue. Perfectionism in reviews has diminishing returns
