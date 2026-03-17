@@ -111,11 +111,24 @@ Use the Task tool to launch these agents **in parallel**:
 - Check accuracy against implementation
 - Skip if no meaningful comment changes
 
-### 4. Synthesize Report
+### 4. Synthesize and Save Report
 
-Combine all agent outputs into a single structured report.
+Combine all agent outputs into a single structured report. **Always save to file — do not output the full report to chat.**
 
-**Report format** (output directly to conversation):
+**File naming**: `docs/reviews/YYYY-MM-DD-<scope>.md` where scope is:
+- `pr-<number>` for PR reviews
+- `branch-<name>` for branch reviews
+- `local` for unstaged/staged changes
+- Append `-r2`, `-r3` for iterative rounds on the same scope
+
+**Chat output**: After saving, output **only** a brief summary (~5-7 lines) with:
+- Finding counts by severity (Critical, Warnings, Suggestions)
+- Link to the full report file
+- Any immediate action needed
+
+**Do not paste the full report to chat.** The file is the source of truth.
+
+Full report template (for file only):
 
 ```markdown
 # Review Report
@@ -209,6 +222,16 @@ Classify each new finding by origin to surface review process failures:
 
 *Omit this section on first review. On subsequent rounds, every new finding MUST be classified.*
 
+## Convention Updates
+
+New patterns or architectural decisions surfaced by this review that should be codified.
+
+| Convention Doc | Action | Description |
+|----------------|--------|-------------|
+| `docs/CONVENTIONS.md` | New / Update / Violated | What to add, change, or reference |
+
+*Omit this section if no convention updates are needed.*
+
 ## Verdict
 
 [ ] Ready to merge
@@ -241,16 +264,42 @@ If any finding reveals a pattern that should be codified for the team:
 - If a finding matches an existing convention: note that the convention was violated (the dev should have caught it)
 - If a finding reveals a **new** pattern not yet codified: add it to the conventions doc
 - If a prior convention was **wrong or incomplete** (e.g., caused a review-induced finding): update it
+- If findings reveal patterns for a **layer that has no convention doc yet**: propose creating one in the Convention Updates table (Action: "Propose new doc"). Include the specific patterns that would seed it. Don't block the review on creating the doc — just flag it as a follow-up.
 
 Convention updates are part of the review's output — they prevent the same finding from recurring in future PRs.
 
-### 6. Optionally Save Report
+### 6. Save Report and Post Review
 
-If reviewing a branch or PR (not just local changes), offer to save:
+#### Branch placement rules
 
-**Location**: `docs/reviews/YYYY-MM-DD-<branch-or-pr>.md`
+| Artifact | Branch | Why |
+|----------|--------|-----|
+| Review report (`docs/reviews/`) | **PR branch** | It's about the PR's code — lives with the code being reviewed |
+| Convention docs (`docs/*_CONVENTIONS.md`) | **develop** | Project-wide standards, not PR-specific |
+| ADRs (`docs/decisions/`) | **develop** | Project-wide decisions, not PR-specific |
+| Task spec updates (`docs/tasks/`) | **develop** | Specs are source of truth independent of PRs |
 
-Only save if user confirms — most reviews are consumed immediately.
+#### Execution order
+
+1. **Checkout the PR branch** and commit the review report there. Push.
+2. **Checkout develop** and commit any convention updates, ADRs, or spec changes. Push.
+3. **Post the GitHub review comment** referencing both locations. If a prior review exists on the PR, **edit it** (`gh api repos/.../reviews/{id} --method PUT`) instead of posting a duplicate.
+
+Always save the report to `docs/reviews/YYYY-MM-DD-<scope>.md` (create directory if needed). Scope naming: `pr-<number>` for PRs, branch name for branch reviews, `local` for unstaged/staged changes. For round 2+ reviews on the same scope, append `-r2`, `-r3` etc.
+
+Output a brief summary to the conversation with findings count by severity and a link to the saved file. The full report lives in the file, not the chat.
+
+### 7. Propagate Decisions
+
+When a review produces an ADR or changes a contract (port shape, entity API, convention), propagate to all consumers before considering the work done:
+
+1. **Grep `docs/tasks/`** for references to the changed interface/pattern — update affected specs
+2. **Find linked GitHub issues** for affected tasks (`gh issue list`) — update issue bodies to match specs
+3. **Check sibling PRs** in the same stack — note required changes in the review comment
+
+**Why this is a step and not optional**: Specs and issues that reference a superseded design become "dead docs" that misinform. The cost of updating 3 issues now is 5 minutes; the cost of a dev implementing against a stale issue is a full review cycle.
+
+ADRs contain **only** Context → Options → Decision → Consequences. Action items go in the review fix guide or issue updates, never in the ADR.
 
 ## Design Principles
 
@@ -321,3 +370,7 @@ When writing a fix guide that restructures error handling (try/except boundaries
 - Don't fix a pattern in one file without grepping for the same pattern elsewhere in the diff — partial fixes create new inconsistencies
 - Don't focus only on the `except` handler — always check what's inside the `try` block and whether unrelated operations share the same error path
 - Don't start a new round after the 3-round cap — defer to follow-up PR/issue. Perfectionism in reviews has diminishing returns
+- Don't commit review reports to develop — they belong on the PR branch (see Step 6 branch placement rules)
+- Don't put action items in ADRs — ADRs are decisions, not task trackers. Action items go in the fix guide or issue updates
+- Don't update only the directly affected task spec — grep for all consumers of a changed contract (ports, entity APIs) across `docs/tasks/` and GitHub issues
+- Don't post a new GitHub review if one already exists — edit the existing review to avoid duplicates
