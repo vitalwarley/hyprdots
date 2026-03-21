@@ -39,14 +39,17 @@ find "$CURSOR_PROJECTS" -path "*/agent-transcripts/*/*.jsonl" -mmin "-${ACTIVE_W
         continue
     fi
 
-    # Skip vault sessions
+    # Determine diary directory based on session context
     if [[ "$cwd" == "$HOME/life/notes"* ]]; then
-        continue
+        diary_search_dir="$HOME/life/notes/resources/exports/claudian"
+        mkdir -p "$diary_search_dir"
+    else
+        diary_search_dir="$HOME/.claude/memory/diary"
     fi
 
     # Check if diary already exists for this session with matching line count
     # (avoid re-triggering for completed sessions)
-    existing_diary=$(grep -rl "<!-- Session ID: $session_id -->" "$HOME/.claude/memory/diary/" 2>/dev/null | sort | tail -1 || true)
+    existing_diary=$(grep -rl "<!-- Session ID: $session_id -->" "$diary_search_dir/" 2>/dev/null | sort | tail -1 || true)
     if [[ -n "$existing_diary" ]]; then
         prev_end=$(grep -o 'JSONL lines: [0-9]*-[0-9]*' "$existing_diary" | tail -1 | grep -o '[0-9]*$' || echo "0")
         if [[ "$line_count" -le "$prev_end" ]]; then

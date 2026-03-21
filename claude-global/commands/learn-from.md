@@ -35,7 +35,7 @@ Extract educational insights from diary entries and session activity, generating
 ### 1. Parse Arguments & Gather Material
 
 - Extract period specification and optional filters
-- Read matching diary entries from `~/.claude/memory/diary/`
+- Read matching diary entries from `~/.claude/memory/diary/` and `~/life/notes/resources/exports/claudian/`
 - Read corresponding reflection files from `~/.claude/memory/reflections/` if available
 - Read project SESSIONS.md or META-SESSIONS.md for additional context
 

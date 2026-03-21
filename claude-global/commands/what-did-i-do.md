@@ -42,7 +42,7 @@ You will execute the following steps:
 - Determine date range based on period
 
 ### 2. Read Diary Entries
-- Scan `~/.claude/memory/diary/` for files matching date range
+- Scan `~/.claude/memory/diary/` and `~/life/notes/resources/exports/claudian/` for files matching date range
 - Parse each diary entry to extract:
   - Date and session number
   - Project context (from file paths, git repos, working directory mentioned)

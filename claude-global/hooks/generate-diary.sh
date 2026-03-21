@@ -33,7 +33,13 @@ if [[ ! -f "$TRANSCRIPT_PATH" ]]; then
 fi
 
 TODAY=$(date '+%Y-%m-%d')
-DIARY_DIR="$HOME/.claude/memory/diary"
+
+# Route vault sessions to vault-visible export directory
+if [[ "$CWD" == "$HOME/life/notes"* ]]; then
+    DIARY_DIR="$HOME/life/notes/resources/exports/claudian"
+else
+    DIARY_DIR="$HOME/.claude/memory/diary"
+fi
 mkdir -p "$DIARY_DIR"
 
 # --- Versioning logic ---
@@ -97,11 +103,15 @@ fi
 
 # --- Build prompt ---
 if [[ "$CWD" == "$HOME/life/notes"* ]]; then
-    DIARY_TEMPLATE="# Session Diary Entry
+    DIARY_TEMPLATE="---
+created: $TODAY
+type: session-diary
+project: notes
+session_id: $SESSION_ID
+tags: [session-diary, vault]
+---
 
-**Date**: $TODAY
-**Session ID**: $SESSION_ID
-**Project**: notes (vault)
+# Session Diary Entry
 
 ## Topics Discussed
 - [main topics and themes explored]
@@ -115,11 +125,15 @@ if [[ "$CWD" == "$HOME/life/notes"* ]]; then
 ## Notes
 [any other relevant observations]"
 else
-    DIARY_TEMPLATE="# Session Diary Entry
+    DIARY_TEMPLATE="---
+created: $TODAY
+type: session-diary
+project: ${PROJECT_NAME:-unknown}
+session_id: $SESSION_ID
+tags: [session-diary]
+---
 
-**Date**: $TODAY
-**Session ID**: $SESSION_ID
-**Project**: ${PROJECT_NAME:-[infer from conversation]}
+# Session Diary Entry
 
 ## Task Summary
 [2-3 sentences: what the user was trying to accomplish]

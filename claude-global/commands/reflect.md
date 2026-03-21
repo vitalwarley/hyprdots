@@ -27,7 +27,7 @@ Read `~/.claude/memory/reflections/processed.log` to find already-processed diar
 
 ### 2. Locate and Filter Diary Entries
 
-- Directory: `~/.claude/memory/diary/`
+- Directories: `~/.claude/memory/diary/` and `~/life/notes/resources/exports/claudian/`
 - Entries named: `YYYY-MM-DD-session-N.md`
 - List all entries sorted by date (newest first)
 - **Exclude already-processed entries** unless user requests re-analysis

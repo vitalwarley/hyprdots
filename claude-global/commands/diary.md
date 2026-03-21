@@ -77,13 +77,16 @@ This is a simplified extraction - only metadata, tool counts, and files. Much fa
 Based on the conversation context (and optional metadata from Step 3), create a structured markdown diary entry with these sections:
 
 ```markdown
-# Session Diary Entry
+---
+created: [YYYY-MM-DD]
+type: session-diary
+project: [project name]
+session_id: [uuid from filename]
+branch: [branch name if available]
+tags: [session-diary]
+---
 
-**Date**: [YYYY-MM-DD from timestamp]
-**Time**: [HH:MM:SS from timestamp]
-**Session ID**: [uuid from filename]
-**Project**: [project path]
-**Git Branch**: [branch name if available]
+# Session Diary Entry
 
 ## Task Summary
 [2-3 sentences: What was the user trying to accomplish based on the user messages?]
@@ -161,13 +164,19 @@ Based on the conversation context (and optional metadata from Step 3), create a 
 Run this command to save the entry:
 
 ```bash
-# Create directory if needed
-mkdir -p ~/.claude/memory/diary && \
+# Determine diary directory: vault sessions go to Obsidian-visible exports
+CWD="{{ cwd }}"
+if [[ "$CWD" == "$HOME/life/notes"* ]]; then
+    DIARY_DIR="$HOME/life/notes/resources/exports/claudian"
+else
+    DIARY_DIR="$HOME/.claude/memory/diary"
+fi
+mkdir -p "$DIARY_DIR" && \
 # Determine filename
 TODAY=$(date +%Y-%m-%d) && \
 N=1 && \
-while [ -f ~/.claude/memory/diary/${TODAY}-session-${N}.md ]; do N=$((N+1)); done && \
-DIARY_FILE=~/.claude/memory/diary/${TODAY}-session-${N}.md && \
+while [ -f "${DIARY_DIR}/${TODAY}-session-${N}.md" ]; do N=$((N+1)); done && \
+DIARY_FILE="${DIARY_DIR}/${TODAY}-session-${N}.md" && \
 # Save entry (you'll need to write the content)
 echo "[diary-content]" > "$DIARY_FILE" && \
 echo "Saved to: $DIARY_FILE"
@@ -178,7 +187,7 @@ Use the Write tool to actually write the diary content to the determined file pa
 ### 5. Confirm Completion
 
 Display:
-- Path where diary was saved (e.g., ~/.claude/memory/diary/2026-01-28-session-1.md)
+- Path where diary was saved (e.g., `~/.claude/memory/diary/2026-01-28-session-1.md` or `~/life/notes/resources/exports/claudian/2026-01-28-session-1.md` for vault sessions)
 - Brief summary of what was captured
 
 ## Important Guidelines

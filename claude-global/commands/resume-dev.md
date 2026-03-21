@@ -7,7 +7,7 @@ You are continuing previous work on this project. Execute this workflow:
 Determine what to continue from based on `$ARGUMENTS`:
 
 **If empty** (auto-detect):
-- Read the most recent diary entry from `~/.claude/memory/diary/` for this project
+- Read the most recent diary entry from `~/.claude/memory/diary/` (or `~/life/notes/resources/exports/claudian/` for vault sessions) for this project
 - Check for open PRs on the current branch:
   ```bash
   gh pr list --head "$(git branch --show-current)" --json number,title,state,url
