@@ -42,15 +42,25 @@ else
 fi
 mkdir -p "$DIARY_DIR"
 
+# --- Slugify helper ---
+# Converts a diary title to a filename-safe slug (max 60 chars)
+slugify() {
+    echo "$1" \
+        | sed 's/^#* *//; s/^Session[: ]*//i' \
+        | tr '[:upper:]' '[:lower:]' \
+        | sed 's/[^a-z0-9à-úá-ú]/-/g; s/--*/-/g; s/^-//; s/-$//' \
+        | cut -c1-60
+}
+
 # --- Versioning logic ---
 # Find existing diary entries for this session (any date, any version).
-# Convention: base = YYYY-MM-DD-session-N.md, versions = ...-session-N-v2.md, ...-v3.md
 EXISTING_FILES=$(grep -rl "<!-- Session ID: $SESSION_ID -->" "$DIARY_DIR"/*.md 2>/dev/null | sort)
 LATEST_EXISTING=$(echo "$EXISTING_FILES" | tail -1)
 
 FROM_LINE=1
 PREV_DIARY_CONTENT=""
 VERSION_SUFFIX=""
+NEEDS_SLUG=false  # true only for new sessions (v1)
 
 if [[ -n "$LATEST_EXISTING" ]]; then
     # Extract the JSONL line range from the previous version
@@ -72,25 +82,22 @@ if [[ -n "$LATEST_EXISTING" ]]; then
     PREV_DIARY_CONTENT=$(cat "$LATEST_EXISTING")
 
     # Determine version number: base file = v1, then v2, v3, ...
-    # Extract the base name (without -vN suffix) from the latest existing file
+    # Versions inherit the slug from v1 — no need to regenerate
     LATEST_BASENAME=$(basename "$LATEST_EXISTING" .md)
     if [[ "$LATEST_BASENAME" =~ -v([0-9]+)$ ]]; then
         PREV_VERSION=${BASH_REMATCH[1]}
         NEXT_VERSION=$((PREV_VERSION + 1))
-        # Strip the -vN to get the base name
         BASE_NAME=$(echo "$LATEST_BASENAME" | sed 's/-v[0-9]*$//')
     else
-        # First file has no version suffix — it's v1, next is v2
         NEXT_VERSION=2
         BASE_NAME="$LATEST_BASENAME"
     fi
     VERSION_SUFFIX="-v${NEXT_VERSION}"
     DIARY_FILE="$DIARY_DIR/${BASE_NAME}${VERSION_SUFFIX}.md"
 else
-    # New diary — find next available session number for today
-    N=1
-    while [[ -f "$DIARY_DIR/${TODAY}-session-${N}.md" ]]; do N=$((N+1)); done
-    DIARY_FILE="$DIARY_DIR/${TODAY}-session-${N}.md"
+    # New diary — Haiku writes to tempfile, we extract title and slugify
+    NEEDS_SLUG=true
+    DIARY_FILE=$(mktemp /tmp/diary-XXXXXX.md)
 fi
 
 # --- Parse transcript ---
@@ -102,6 +109,10 @@ if [[ -z "$PARSED" ]]; then
 fi
 
 # --- Build prompt ---
+# IMPORTANT: The H1 title MUST be descriptive (e.g., "# Journal Review W11 + Vault Reorg")
+# because it is used to derive the filename slug.
+TITLE_INSTRUCTION="CRITICAL: The H1 title (# ...) MUST be a short descriptive summary of the session's main topic (3-8 words). Examples: '# Journal Review W11', '# BJJ Logging & Knowledge Capture', '# Auto-Diary Vault Routing'. Do NOT use generic titles like '# Session Diary Entry'."
+
 if [[ "$CWD" == "$HOME/life/notes"* ]]; then
     DIARY_TEMPLATE="---
 created: $TODAY
@@ -111,7 +122,7 @@ session_id: $SESSION_ID
 tags: [session-diary, vault]
 ---
 
-# Session Diary Entry
+# [Short Descriptive Title]
 
 ## Topics Discussed
 - [main topics and themes explored]
@@ -133,7 +144,7 @@ session_id: $SESSION_ID
 tags: [session-diary]
 ---
 
-# Session Diary Entry
+# [Short Descriptive Title]
 
 ## Task Summary
 [2-3 sentences: what the user was trying to accomplish]
@@ -173,6 +184,8 @@ Write the diary entry to: $DIARY_FILE
 Use this structure:
 ${DIARY_TEMPLATE}
 
+${TITLE_INSTRUCTION}
+
 Add this line at the top after the title:
 **Version**: v${NEXT_VERSION} (previous: $(basename "$LATEST_EXISTING"))
 
@@ -186,6 +199,8 @@ Create a structured diary entry for this session and write it to: $DIARY_FILE
 
 Use this structure:
 ${DIARY_TEMPLATE}
+
+${TITLE_INSTRUCTION}
 
 Use the Write tool to write directly to $DIARY_FILE. Do not ask for confirmation — just write the file."
 fi
@@ -202,6 +217,25 @@ if [[ ! -s "$DIARY_FILE" ]]; then
     exit 1
 fi
 
+# For new sessions: extract title from generated diary, slugify, and rename
+if [[ "$NEEDS_SLUG" == true ]]; then
+    TITLE=$(grep -m1 '^# ' "$DIARY_FILE" | head -1)
+    SLUG=$(slugify "$TITLE")
+    if [[ -z "$SLUG" || "$SLUG" == "session-diary-entry" || "$SLUG" == "diary-entry" ]]; then
+        # Fallback if Haiku ignored the title instruction
+        SLUG="session-$(date +%s | tail -c5)"
+    fi
+    FINAL_FILE="$DIARY_DIR/${TODAY}-${SLUG}.md"
+    # Avoid collision
+    if [[ -f "$FINAL_FILE" ]]; then
+        N=2
+        while [[ -f "$DIARY_DIR/${TODAY}-${SLUG}-${N}.md" ]]; do N=$((N+1)); done
+        FINAL_FILE="$DIARY_DIR/${TODAY}-${SLUG}-${N}.md"
+    fi
+    mv "$DIARY_FILE" "$FINAL_FILE"
+    DIARY_FILE="$FINAL_FILE"
+fi
+
 # Append session ID and JSONL line range for deduplication and versioning
 if ! grep -q "<!-- Session ID:" "$DIARY_FILE"; then
     echo "" >> "$DIARY_FILE"
@@ -216,8 +250,10 @@ fi
 
 # --- Update INDEX.md ---
 INDEX_FILE="$DIARY_DIR/INDEX.md"
-SUMMARY=$(sed -n '/^## Task Summary$/,/^##/{/^## Task Summary$/d;/^##/d;p;}' "$DIARY_FILE" | head -1 | sed 's/^ *//')
-PROJECT=$(sed -n 's/^\*\*Project\*\*: *//p' "$DIARY_FILE" | head -1)
+# Extract summary from first content line of Task Summary or Topics Discussed
+SUMMARY=$(sed -n '/^## \(Task Summary\|Topics Discussed\)$/,/^##/{/^## /d;/^$/d;p;}' "$DIARY_FILE" | head -1 | sed 's/^ *//; s/^- *//')
+# Extract project from frontmatter
+PROJECT=$(sed -n 's/^project: *//p' "$DIARY_FILE" | head -1)
 
 CREATED_AT=$(stat -c '%w' "$DIARY_FILE" 2>/dev/null | cut -d' ' -f1,2 | head -c19)
 if [[ -z "$CREATED_AT" || "$CREATED_AT" == "-" ]]; then
