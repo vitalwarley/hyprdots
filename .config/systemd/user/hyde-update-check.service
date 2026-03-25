@@ -1,0 +1,7 @@
+[Unit]
+Description=Check for HyDE updates
+
+[Service]
+Type=oneshot
+ExecStart=%h/life/2-areas/dev-tools/hyprdots/hypr/scripts/hyde-check-update.sh
+Environment=DISPLAY=:0
