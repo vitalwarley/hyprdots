@@ -1,9 +1,9 @@
 # Wallbash-generated theme files
 waybar/theme.css
 
-# HyDE-managed template files
-# These files are managed by HyDE and sourced from ~/.local/share/hyde/
-# Do not version these - they will be overwritten by HyDE updates
+# HyDE P-flagged files (seeded once, never overwritten — safe to track)
+# See ~/life/notes/areas/arch/hyde-config-flags.md for full flag reference
+# Files below are ignored because we don't customize them, not because HyDE overwrites them
 
 hypr/hyprland.conf
 hypr/hypridle.conf
