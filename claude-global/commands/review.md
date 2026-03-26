@@ -86,9 +86,44 @@ Before forming opinions, gather context that cuts across environments. This step
 
 Skip this step entirely if the diff is pure application code with no config/infra changes and no bot comments.
 
+### 2.5. Mechanical Checks (run before agents — cheap, fast signals)
+
+Before launching any agents, run these in parallel (~5s total):
+
+```bash
+# 1. Linter on changed files only
+<project-linter> <changed-files>  # e.g., ruff check, eslint
+
+# 2. Tests covering changed code
+<project-test-cmd> <relevant-test-files>
+
+# 3. Convention violation scan
+# Read each convention doc referenced in CLAUDE.md (e.g., DOMAIN_CONVENTIONS.md, DTO_CONVENTIONS.md)
+# For each checklist item, grep the diff for violations
+```
+
+**Why before agents**: Lint and test failures are objective, instant, and high-signal. Discovering them after 3 minutes of agent analysis wastes the agent's context (it analyzed code that will change). Convention checklists catch violations that agents miss because agents don't read convention docs unless prompted.
+
+**Record findings from this step** — they feed directly into the report. Don't duplicate these checks in agent prompts.
+
+### 2.7. Detect Verification Pass
+
+If this is a round N+1 review where all prior findings were reportedly fixed:
+
+- **Use lightweight flow**: Skip agents entirely. Instead:
+  1. For each prior finding, verify the fix commit exists and addresses the finding
+  2. Run mechanical checks (Step 2.5)
+  3. Spot-check convention compliance on newly added code only
+  4. Write a short verification report (not the full template)
+- **Escalate to full review only if** mechanical checks reveal new issues or fix verification fails
+
+**Why**: A verification pass that launches 3 agents for 3 minutes each to confirm "yes, the fixes landed" is a 10-minute tax on every review cycle. The prior round already did the deep analysis.
+
 ### 3. Launch Parallel Analysis Agents
 
-Use the Task tool to launch these agents **in parallel**:
+Use the Task tool to launch these agents **in parallel**. **Agents must not write files** — they return findings to the main process, which synthesizes the report.
+
+**Critical**: For PR reviews, ensure agents work on the PR branch HEAD. Include in each agent prompt: "You are reviewing branch `<branch>` at commit `<sha>`. Fetch and checkout before reading files."
 
 **a. Code Review** (pr-review-toolkit:code-reviewer)
 - Check adherence to project CLAUDE.md guidelines
@@ -363,8 +398,12 @@ When writing a fix guide that restructures error handling (try/except boundaries
 
 - Don't review files that weren't changed — focus on the diff
 - Don't run all 4 agents if the change is 5 lines — use judgment
+- Don't launch agents for verification passes (round N+1 where all findings were fixed) — use Step 2.7 lightweight flow
+- Don't let agents write to the repo (reports, convention docs) — agents return findings, the main process writes artifacts
 - Don't block on suggestions — only Critical findings are blockers
-- Don't duplicate what CI already catches (lint, format, type-check)
+- Don't duplicate what CI already catches (lint, format, type-check) — but DO run the linter yourself in Step 2.5 since CI may not have run yet
+- Don't skip the convention checklist scan (Step 2.5) — agents miss convention violations because they don't read convention docs unless explicitly prompted
+- Don't sleep-poll for agent completion — launch agents in background, do mechanical checks (Step 2.5) in foreground, then synthesize when both are ready
 - Don't skip Step 1.5 on iterative reviews — re-deriving context from scratch is slower and risks contradicting prior decisions
 - Don't prescribe mechanism without principle in fix guides — "use Literal" without "because single source of truth" leads to review-induced bugs
 - Don't fix a pattern in one file without grepping for the same pattern elsewhere in the diff — partial fixes create new inconsistencies

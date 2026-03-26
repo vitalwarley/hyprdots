@@ -257,6 +257,7 @@ Then analyze:
 2. Check CI status — any failures block merge
 3. Scan diffs for cross-PR conflicts (overlapping file changes, shared state)
 4. Verify any `git add -f` usage in diffs — flag as gitignore issue to fix before merge
+5. Check review state — if `CHANGES_REQUESTED` and all findings have fix commits, suggest: "All findings addressed — run `/review pr N` (will use lightweight verification pass)" instead of full re-review
 
 Present consolidated summary:
 
