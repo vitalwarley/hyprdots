@@ -71,7 +71,7 @@ Before forming any opinions, check if this is a continuation of prior work:
 
 - **Prior review artifacts**: Check `docs/reviews/` for existing reports on the same PR/branch. Read them in full — they contain findings, decisions, and fix guides that inform this round.
 - **PR review history**: For `pr` scope, read all prior review bodies and comments (`gh pr view <number> --json reviews`). Understand what was already requested and what was fixed.
-- **Spec/plan referenced**: If the prior review links a spec, read it to understand the contract being reviewed against.
+- **Spec/plan referenced**: If the prior review links a spec, read it to understand the contract being reviewed against. **Always search for task-specific specs** on the base branch (e.g., `git show origin/develop:docs/tasks/task-NNN-*.md`) — the PR branch may not have them, and the issue may link a stale overview instead of the detailed spec. Also check the linked GitHub issue for spec references.
 - **Recent project reviews (this week)**: Scan `docs/reviews/` for reports from the last 7 days across all PRs (not just the current one). Also check recently merged/closed PRs (`gh pr list --state all --limit 10`). Recent reviews surface emerging conventions, recurring anti-patterns, and decisions that apply project-wide. Use them to:
   - Enforce conventions established in other PRs this week (even if not yet in convention docs)
   - Detect the same anti-pattern appearing across concurrent PRs
@@ -129,7 +129,7 @@ pytest --collect-only <changed-test-files>  # catches ModuleNotFoundError, broke
 
 **Import verification**: Linters catch style issues but not `ModuleNotFoundError`. Always run `pytest --collect-only` on changed test files — it catches broken imports before any test executes. This is especially important when the PR introduces new modules or changes import paths.
 
-**Stacked PRs** (base is a feature branch, not main/develop): Dependencies from the base branch may not exist on the PR branch in isolation. Before running tests, merge the base branch locally into a temp state (`git merge --no-commit origin/<base-branch>`), run the checks, then reset. If merge isn't feasible, run `pytest --collect-only` against the merged diff and document the limitation in the report. Never skip import verification just because the PR is stacked.
+**Stacked PRs** (base is a feature branch, not main/develop): Dependencies from the base branch may not exist on the PR branch in isolation. **Always merge the base branch locally** before running any checks (`git merge --no-commit origin/<base-branch>`). This is not optional — without it, mechanical checks produce noise (ModuleNotFoundError) instead of signal (actual code quality issues). Run checks on the merged state, then reset. If merge has conflicts, document the limitation. Never skip this step and never report "missing imports" as a finding when the cause is an unmerged parent branch.
 
 **Record findings from this step** — they feed directly into the report. Don't duplicate these checks in agent prompts.
 
@@ -207,14 +207,26 @@ Full report template (for file only):
 
 ## Findings
 
+Every finding has a unique ID (C1, W1, S1) for cross-referencing in fix guides, reviewer-applied fixes, and spec compliance tables. Use structured multi-line format — not wall-of-text paragraphs.
+
 ### Critical (must fix before merge)
-- **[file:line]** Description of issue
+
+**C1** — Short title ✅/⏳ `commit` or status
+- **File**: `file.py:line`
+- **Principle**: The design rule being violated.
+- **Issue**: What's wrong and what happens at runtime.
 
 ### Warnings (should fix)
-- **[file:line]** Description of concern
+
+**W1** — Short title ✅/⏳ `commit` or status
+- **File**: `file.py:line`
+- **Issue**: Description of concern.
 
 ### Suggestions (nice to have)
-- **[file:line]** Improvement opportunity
+
+**S1** — Short title ✅/⏳ `commit` or status
+- **File**: `file.py:line`
+- **Issue**: Improvement opportunity.
 
 ## Agent Reports
 
@@ -250,6 +262,18 @@ Cross-reference implementation against the PRD/spec requirements.
 | Requirement text | ✅/❌ | How verified | Missing feature or — |
 
 *Source: link to PRD/spec section. Omit this section if no spec exists for the work.*
+
+## Spec Divergence Analysis
+
+When the spec/issue contains stale or inconsistent instructions, findings must be attributed to their root cause. Not all "wrong code" is a developer mistake — some is caused by following incorrect documentation.
+
+| Finding | What dev followed | What's correct | Root cause |
+|---------|-------------------|----------------|------------|
+| ID | Spec/issue instruction | Convention or correct spec section | **Stale spec** / **Dev issue** |
+
+For each **stale spec** finding: note what doc needs updating and whether the reviewer will apply the code fix (since it's not the dev's fault). For each **dev issue**: the dev is responsible for fixing it.
+
+*Omit this section if spec and implementation are aligned. Include whenever findings trace to documentation inconsistencies — this surfaces the real problem (docs, not people) and prevents the same issue on future PRs.*
 
 ## Previous Review Findings
 
@@ -302,10 +326,20 @@ New patterns or architectural decisions surfaced by this review that should be c
 [ ] Needs changes (see Critical findings)
 [ ] Needs discussion (see Open Questions)
 
+## Reviewer-Applied Fixes
+
+When the reviewer applies code fixes (typically for spec-divergence issues that are not the dev's fault), list them with commit hashes. Each finding resolved by a reviewer fix must be marked ✅ with the commit hash inline.
+
+| Fix | Commit | Findings resolved |
+|-----|--------|-------------------|
+| Short description | `abc1234` | C1, C2, W1 |
+
+*Omit this section if the reviewer did not apply any fixes. See §6 "Reviewer-applies-fixes" for rules.*
+
 ## Fix Guide (if Critical or Warning findings exist)
 
 For each fixable finding, provide:
-1. **File and line** — exact location
+1. **Resolves** — list the finding IDs this fix addresses (e.g., "C4", "W4, W5, W6, S2")
 2. **Principle** — the design rule being violated (e.g., "single source of truth", "fail visibly")
 3. **What to change** — concrete fix description (not just "consider improving")
 4. **Propagation check** — other locations where the same anti-pattern may exist (grep result or "checked, no other instances")
