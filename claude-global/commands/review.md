@@ -104,7 +104,12 @@ Before forming opinions, gather context that cuts across environments. This step
 - Treat each as an unverified claim — verify against code and official docs before agreeing or disagreeing
 - Explicitly state when a bot comment is incorrect and why
 
-Skip this step entirely if the diff is pure application code with no config/infra changes and no bot comments.
+**For architecture/convention violations** (import direction, layer placement, pattern choices):
+- For each suspected violation, grep the spec (`docs/tasks/`), linked issue body, and convention docs for the exact code pattern (import path, function name, lock type, etc.)
+- If the spec or issue directed the dev to use the pattern, the finding is **spec-caused** — the reviewer applies the fix and updates the spec, not the dev
+- Example: finding `from interfaces.api... import detection_event_to_dto` → grep spec for `detection_event_to_dto` and `interface layer` to check if the spec told the dev to do this
+
+Skip this step entirely if the diff is pure application code with no config/infra changes, no bot comments, and no architecture violations.
 
 ### 2.5. Mechanical Checks (run before agents — cheap, fast signals)
 
@@ -178,6 +183,11 @@ Use the Task tool to launch these agents **in parallel**. **Agents must not writ
 ### 4. Synthesize and Save Report
 
 Combine all agent outputs into a single structured report. **Always save to file — do not output the full report to chat.**
+
+**Mandatory sections** (never skip regardless of PR size):
+- **Spec Compliance**: requirement-by-requirement table cross-referencing spec, issue, and ADRs
+- **Root Cause Analysis / Spec Divergence Analysis**: for every finding, trace whether the dev followed stale/ambiguous docs or made an independent error. Include a timeline showing when specs, conventions, and the PR were created. This is the most valuable part of the review for the team — it surfaces doc problems that cause recurring issues across PRs.
+- **Documentation fixes applied**: when spec/issue updates are made, list them with commit hashes
 
 **File naming**: `docs/reviews/YYYY-MM-DD-<scope>.md` where scope is:
 - `pr-<number>` for PR reviews
