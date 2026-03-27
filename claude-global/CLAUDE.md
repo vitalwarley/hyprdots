@@ -5,6 +5,7 @@
 - Agent SDK (Claudian, etc.) reads MCP servers from `~/.claude.json` — same as CLI
 
 ## Claude Tooling (commands, skills, hooks)
+- **Source of truth**: `~/life/2-areas/dev-tools/hyprdots/claude-global/commands/`, `.../skills/`, `.../hooks/` — to find or edit any command/skill/hook, go here directly (don't search ~/.claude/ with find/readlink)
 - all commands (`~/.claude/commands/`), skills (`~/.claude/skills/`), and hooks (`~/.claude/hooks/`) are symlinks to `~/life/2-areas/dev-tools/hyprdots/claude-global/` — source of truth is git-tracked there
 - systemd user units (`~/.config/systemd/user/`) are symlinks to `~/life/2-areas/dev-tools/hyprdots/.config/systemd/user/` — same git-tracked pattern
 - to edit: use Edit tool (follows symlink, edits the versioned file directly)
@@ -18,6 +19,7 @@
 - shell scripts matching project names in delimited files: use awk with field-specific matching, not grep — grep matches across all columns and overcounts
 - Always run python with 'uv run' first.
 - Dockerfile: use `--no-editable` for pip install in containers — editable installs cached in named volumes survive code restructuring and cause stale imports
+- Arch rolling-release breakage: trace the full env var chain (global config → session/process overrides → runtime behavior) before proposing fixes; partial overrides cause cascading issues
 
 ## Documentation Standards
 - prefer comprehensive technical docs with practical examples, code snippets, and authoritative references over brief summaries
@@ -55,6 +57,14 @@
 - when proposing a fix, explicitly state whether it addresses the symptom or the structural cause; if symptom-only, present the structural fix as the recommended approach
 - when a fix involves changing how one side reads data to match the other side's format: verify a typed contract enforces the format; if none exists, adding the contract is the primary fix
 
+## Review & Fix Guide Principles
+- before acting on any iterative artifact (review round 2+, spec revision, follow-up PR), load the prior state first — re-deriving context from scratch is slower and risks contradicting decided points
+- fix suggestions must state the **principle** being violated, not just the mechanism to apply — "single source of truth" is durable, "use Literal" is fragile and may be wrong if an enum already exists
+- when a fix changes a pattern in one file, grep the codebase for the same anti-pattern — partial fixes create new inconsistencies (e.g., fixing `datetime.now()` → `datetime.now(UTC)` in one file but not another)
+- review error handling by **scope** (what's inside the try block) not just **handler** (what's in the except) — unrelated operations sharing a try block cause misattributed failures
+- on iterative reviews, classify every new finding by origin: pre-existing (missed before), review-induced (caused by a prior fix guide), or genuinely new — this surfaces review process failures
+- never suggest an implementation without verifying it exists in types/docs/source — a fix guide the dev follows literally that introduces a new bug is a review failure
+
 ## Code Quality & Style
 - python: use type hints, Pydantic Settings, dataclasses, enums for type safety
 - python: use environment variables for configuration (not hardcoded paths)
@@ -67,8 +77,21 @@
 - python: prefer Python over complex bash/jq for non-trivial JSON processing
 - avoid LLM-style jargon in output: no "Key Insight:", "Novel", "Smart", or marketing-speak — use neutral technical language
 
+## Testing Principles
+- regression-first: write a failing test that reproduces the bug BEFORE fixing it — no bug fix without a red-then-green test
+- test behaviors not methods: name tests after what the code does (`test_rejects_degenerate_polygon`), not what method it calls (`test_post_init`)
+- one invariant, one test, with `match=` on `pytest.raises` — pins the test to the specific validation
+- pyramid for pure domain (heavy unit), trophy for interface layers (heavy integration) — choose per layer, not globally
+- automate conventions as architectural fitness functions (`tests/architecture/`) — frozen dataclass checks, dependency direction, export completeness
+- property-based testing (Hypothesis) for mathematical/geometric code — properties like "invariant to input ordering" subsume specific examples
+- domain tests need zero infrastructure — if a domain test imports a web framework, the dependency direction is wrong
+- mock only at architectural boundaries (repository ports) — never mock domain objects
+- separate deterministic pipeline (exact assertions, fast CI) from stochastic model (behavioral tests with tolerance, GPU CI)
+- full research: `~/life/docs/researches/testing-principles-research.md`; per-project strategy: `docs/research/testing-strategy.md`
+
 ## Workflow & Efficiency
 - CLAUDE.md: keep concise — dense index linking to canonical docs, not a reference manual
+- CLAUDE.md vs MEMORY.md: if it contradicts/updates something already in CLAUDE.md → update CLAUDE.md directly; if it's a project-level process any Claude session should follow → CLAUDE.md; if it's about how I interact with this specific user → memory
 - before debugging from scratch, search diaries for similar past issues — environment/config problems are almost always recurring
 - diaries are point-in-time snapshots, not authoritative — when they contradict current state, verify and promote confirmed facts to CLAUDE.md via /reflect
 - read files to understand current state before editing
@@ -93,6 +116,9 @@
 - GitHub issues: update issue body when decisions change — comments are evolution log, not source of truth
 - weekly doc sync: when specs and implementation diverge, update spec first then propagate to dependent docs (attack plan → issues → data-sources)
 - lint auto-fix: review diffs for side-effect imports and architectural wiring before accepting
+- MCP GitHub tools are unreliable (wrong names, 401 credentials) — prefer `gh` CLI for all GitHub operations; inspect available MCP tools before calling
+- documentation: design for dual consumers (AI agent context injection + human team navigation) — single source of truth per topic
+- multi-source synthesis (minutes, follow-ups, reports): after initial draft, self-audit each claim against its specific source — plausible-but-wrong items are the most damaging errors
 
 ## Learning Protocol
 
@@ -152,6 +178,10 @@ Use `/menu` to see project context and available actions. It runs `session-route
 - system architecture: vertical flow (graph TB)
 - timelines: use Gantt charts for parallel work streams
 
+## Life Repo Sync
+- `~/life/notes/areas/life.md` is a vault-visible mirror of the life repo structure (projects, areas, scripts) — the vault Claudian is sandboxed and cannot read outside `notes/`
+- when adding/removing projects in `1-projects/`, areas in `2-areas/`, or making significant structural changes to the life repo, update the corresponding tables in `notes/areas/life.md` to keep it in sync
+
 ## Project-Specific Patterns
 - Toledo TDB Dashboard: use Feature Teams model (parallel vertical features) not sequential phases
 - Toledo TDB Dashboard: maintain running count of decisions across documents (e.g., "24→25 decisions")
@@ -163,3 +193,4 @@ Use `/menu` to see project context and available actions. It runs `session-route
 - RAG: skip vector DB when knowledge base fits in context window — use direct context injection with keyword matching
 - data validation: prefer explicit whitelists over heuristics for enum classification
 - multi-person milestones: create explicit responsibility matrix before parallel execution
+- ML experiments: after extracting artifacts (embeddings, checkpoints, metrics), validate with sanity checks (tensor norms, shapes, value ranges) before downstream analysis

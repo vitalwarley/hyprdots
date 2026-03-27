@@ -28,6 +28,22 @@ Generate a structured review report for recent changes, combining multiple speci
 
 ## Workflow
 
+### 0. Checkout PR Branch
+
+For `pr` and `branch` scopes, checkout the target branch before any work:
+
+```bash
+# PR scope
+git fetch origin <pr-branch>
+git checkout <pr-branch>
+
+# Branch scope — already on the branch (verify)
+```
+
+**Stay on this branch for the entire review session.** Do not switch back to the original branch after committing the report. If other branches are needed (e.g., `develop` for convention updates), do that work last — after the user has reviewed the report and approved the PR comment.
+
+**Why**: Switching branches makes the review report invisible in the user's IDE. Workarounds like `git show` into untracked files create cleanup problems.
+
 ### 1. Determine Diff Scope
 
 Based on the scope argument, collect the diff to review:
@@ -300,6 +316,7 @@ For each fixable finding, provide:
 - **Principle and entry point, not hand-holding.** State the principle and the key action. Don't enumerate every cascading file — the dev is responsible for following through on implications (updating imports, running tests, checking references). A rename is a cascade operation; the review says "rename to snake_case," not "rename file, then update __init__.py line 5, then update test_foo.py line 3."
 - When a fix changes a pattern in one file, **grep the diff for the same anti-pattern** in other files. Fixing one side of an inconsistency without checking the other creates a new inconsistency.
 - Never suggest an implementation without verifying it exists (types, methods, APIs). The fix guide is a contract — if the dev follows it literally and it introduces a new problem, that's a review failure.
+- When a fix **removes behavior** (validation, error handling, a code path), explicitly state what to do with the **test that asserts that behavior** (remove it, update it, or defer it). A fix guide that says "remove the validation" without mentioning the test that expects `ValueError` creates a review-induced finding when the dev follows it literally.
 
 Example:
 > **[src/api/auth.py:42]** *Principle: fail visibly — exceptions should propagate or be logged, never swallowed.* Replace bare `except:` with `except ValueError:` — current code swallows all exceptions including KeyboardInterrupt. *Propagation: grep found no other bare `except:` in diff.*
