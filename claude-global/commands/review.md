@@ -56,10 +56,14 @@ Before forming any opinions, check if this is a continuation of prior work:
 - **Prior review artifacts**: Check `docs/reviews/` for existing reports on the same PR/branch. Read them in full — they contain findings, decisions, and fix guides that inform this round.
 - **PR review history**: For `pr` scope, read all prior review bodies and comments (`gh pr view <number> --json reviews`). Understand what was already requested and what was fixed.
 - **Spec/plan referenced**: If the prior review links a spec, read it to understand the contract being reviewed against.
+- **Recent project reviews (this week)**: Scan `docs/reviews/` for reports from the last 7 days across all PRs (not just the current one). Also check recently merged/closed PRs (`gh pr list --state all --limit 10`). Recent reviews surface emerging conventions, recurring anti-patterns, and decisions that apply project-wide. Use them to:
+  - Enforce conventions established in other PRs this week (even if not yet in convention docs)
+  - Detect the same anti-pattern appearing across concurrent PRs
+  - Avoid contradicting a decision made in a sibling review
 
-**Why this matters**: Without prior state, you re-derive context from scratch — slower, and risks contradicting decisions already made. Iterative artifacts accumulate decisions; ignoring them means reviewing in a vacuum.
+**Why this matters**: Without prior state, you re-derive context from scratch — slower, and risks contradicting decisions already made. Iterative artifacts accumulate decisions; ignoring them means reviewing in a vacuum. Recent cross-PR reviews prevent convention drift between parallel workstreams.
 
-**For first reviews**: Skip this step. For subsequent rounds: the prior review is as important as the diff itself.
+**For first reviews**: Skip same-PR prior state, but still load recent project reviews. For subsequent rounds: the prior review is as important as the diff itself.
 
 ### 2. Cross-Environment Context Gathering
 
@@ -94,15 +98,22 @@ Before launching any agents, run these in parallel (~5s total):
 # 1. Linter on changed files only
 <project-linter> <changed-files>  # e.g., ruff check, eslint
 
-# 2. Tests covering changed code
+# 2. Import/collection check on changed test files
+pytest --collect-only <changed-test-files>  # catches ModuleNotFoundError, broken imports
+
+# 3. Tests covering changed code
 <project-test-cmd> <relevant-test-files>
 
-# 3. Convention violation scan
+# 4. Convention violation scan
 # Read each convention doc referenced in CLAUDE.md (e.g., DOMAIN_CONVENTIONS.md, DTO_CONVENTIONS.md)
 # For each checklist item, grep the diff for violations
 ```
 
 **Why before agents**: Lint and test failures are objective, instant, and high-signal. Discovering them after 3 minutes of agent analysis wastes the agent's context (it analyzed code that will change). Convention checklists catch violations that agents miss because agents don't read convention docs unless prompted.
+
+**Import verification**: Linters catch style issues but not `ModuleNotFoundError`. Always run `pytest --collect-only` on changed test files — it catches broken imports before any test executes. This is especially important when the PR introduces new modules or changes import paths.
+
+**Stacked PRs** (base is a feature branch, not main/develop): Dependencies from the base branch may not exist on the PR branch in isolation. Before running tests, merge the base branch locally into a temp state (`git merge --no-commit origin/<base-branch>`), run the checks, then reset. If merge isn't feasible, run `pytest --collect-only` against the merged diff and document the limitation in the report. Never skip import verification just because the PR is stacked.
 
 **Record findings from this step** — they feed directly into the report. Don't duplicate these checks in agent prompts.
 
@@ -317,11 +328,21 @@ Convention updates are part of the review's output — they prevent the same fin
 | ADRs (`docs/decisions/`) | **develop** | Project-wide decisions, not PR-specific |
 | Task spec updates (`docs/tasks/`) | **develop** | Specs are source of truth independent of PRs |
 
+#### Reviewer-applies-fixes
+
+When the user asks the reviewer to apply the fix guide directly (e.g., PR is old, already has one round of revision, or fixes are trivial), the reviewer may commit fixes to the PR branch. Rules:
+
+- One commit per fix — atomic, semantic messages (not `fix: review of pr`)
+- Update the review report with each fix commit hash
+- Update the verdict to reflect the new state
+- This is **not the default** — fixes are the dev's responsibility unless the user explicitly requests otherwise
+
 #### Execution order
 
 1. **Checkout the PR branch** and commit the review report there. Push.
 2. **Checkout develop** and commit any convention updates, ADRs, or spec changes. Push.
-3. **Post to GitHub**:
+3. **User revision gate**: Present the review summary in chat and **wait for the user to approve** before posting to GitHub. The user may want to edit findings, adjust severity, or rephrase before the team sees it. Never auto-post.
+4. **Post to GitHub** (only after user approval):
    - **R1**: Submit a GitHub review (`gh pr review`) with the summary.
    - **R2+**: Post a new PR comment (`gh pr comment`) — never overwrite a prior round's review. Each round's review is a historical record.
    - **Same-round dedup only**: If you accidentally post the same round twice, edit the duplicate (`gh api ... --method PUT`). "Duplicate" means the exact same round posted twice, not a new round on the same PR.
@@ -438,3 +459,4 @@ When writing a fix guide that restructures error handling (try/except boundaries
 - Don't update only the directly affected task spec — grep for all consumers of a changed contract (ports, entity APIs) across `docs/tasks/` and GitHub issues
 - Don't overwrite a prior round's GitHub review with the current round — each round is a historical record; post R2+ as a new PR comment
 - Don't enumerate every cascading file in fix guides — state the principle and entry point; the dev owns the follow-through
+- Don't post PR comments or reviews to GitHub without the user's explicit approval — present the summary in chat first and wait
