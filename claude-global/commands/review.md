@@ -106,6 +106,8 @@ Before launching any agents, run these in parallel (~5s total):
 
 **Record findings from this step** — they feed directly into the report. Don't duplicate these checks in agent prompts.
 
+**Test evidence check**: If mechanical checks reveal failures the dev should have caught (import errors, syntax errors, test failures), flag this explicitly in the report. The PR's "Tests pass locally" checkbox is insufficient — request test output as evidence in the review comment.
+
 ### 2.7. Detect Verification Pass
 
 If this is a round N+1 review where all prior findings were reportedly fixed:
@@ -251,8 +253,8 @@ Classify each new finding by origin to surface review process failures:
 | ID | pre-existing / review-induced / genuinely new | Why it wasn't caught before, or how a prior fix created it |
 
 **Origin categories**:
-- **Pre-existing**: Was in the original code but missed in prior rounds. Root-cause the gap (depth of analysis? wrong focus area? no grep for anti-pattern?).
-- **Review-induced**: Created by following a prior round's fix guide. This is a review failure — the fix guide was imprecise, didn't check propagation, or prescribed mechanism without principle.
+- **Pre-existing**: Was in the original code but missed in prior rounds, OR the dev partially applied a correct fix guide (e.g., updated imports but didn't rename the file). Root-cause the gap (depth of analysis? wrong focus area? incomplete execution by dev?).
+- **Review-induced**: The fix guide itself was wrong, imprecise, or led to a bug even when followed correctly. This is a review failure — the fix guide prescribed something that doesn't work. A dev partially applying correct instructions is NOT review-induced — that's pre-existing (incomplete fix).
 - **Genuinely new**: Appeared in commits made since the last review (new code, not a response to review feedback).
 
 *Omit this section on first review. On subsequent rounds, every new finding MUST be classified.*
@@ -284,6 +286,7 @@ For each fixable finding, provide:
 
 **Fix guide rules**:
 - State the **principle first**, then the mechanism. A fix guide that says "use Literal" when an enum already exists teaches the wrong lesson. Say "single source of truth for status values — use the existing `JobStatus` enum" so the dev understands *why*, not just *what*.
+- **Principle and entry point, not hand-holding.** State the principle and the key action. Don't enumerate every cascading file — the dev is responsible for following through on implications (updating imports, running tests, checking references). A rename is a cascade operation; the review says "rename to snake_case," not "rename file, then update __init__.py line 5, then update test_foo.py line 3."
 - When a fix changes a pattern in one file, **grep the diff for the same anti-pattern** in other files. Fixing one side of an inconsistency without checking the other creates a new inconsistency.
 - Never suggest an implementation without verifying it exists (types, methods, APIs). The fix guide is a contract — if the dev follows it literally and it introduces a new problem, that's a review failure.
 
@@ -318,11 +321,32 @@ Convention updates are part of the review's output — they prevent the same fin
 
 1. **Checkout the PR branch** and commit the review report there. Push.
 2. **Checkout develop** and commit any convention updates, ADRs, or spec changes. Push.
-3. **Post the GitHub review comment** referencing both locations. If a prior review exists on the PR, **edit it** (`gh api repos/.../reviews/{id} --method PUT`) instead of posting a duplicate.
+3. **Post to GitHub**:
+   - **R1**: Submit a GitHub review (`gh pr review`) with the summary.
+   - **R2+**: Post a new PR comment (`gh pr comment`) — never overwrite a prior round's review. Each round's review is a historical record.
+   - **Same-round dedup only**: If you accidentally post the same round twice, edit the duplicate (`gh api ... --method PUT`). "Duplicate" means the exact same round posted twice, not a new round on the same PR.
 
 Always save the report to `docs/reviews/YYYY-MM-DD-<scope>.md` (create directory if needed). Scope naming: `pr-<number>` for PRs, branch name for branch reviews, `local` for unstaged/staged changes. For round 2+ reviews on the same scope, append `-r2`, `-r3` etc.
 
 Output a brief summary to the conversation with findings count by severity and a link to the saved file. The full report lives in the file, not the chat.
+
+### 6.5. Scope Check
+
+Compare each changed file against the PR's stated architecture layer (from the PR template's "Architecture Layer" section).
+
+- If a file belongs to a **different layer** (e.g., API contracts in a domain entity PR, infrastructure config in an application layer PR), flag it as out of scope.
+- **Why**: Files from other layers will be reviewed in their own PR with the right context. Premature additions (like documenting API endpoints before they exist) become stale if the design changes during implementation.
+
+### 6.7. Process Feedback
+
+When the review surfaces workflow issues beyond code quality, post a separate PR comment (not in the review report) addressing the dev directly. Examples:
+
+- **Commit hygiene**: Generic messages like `fix: review of pr` — advise semantic, atomic commits (one per fix).
+- **Test evidence**: If mechanical checks caught failures the dev should have seen — ask whether tests were run, request output as evidence.
+- **Artifact preservation**: If review reports or other artifacts were deleted — explain why they must be preserved.
+- **Comment quality**: Non-informational PR comments ("Ciente", "Atualizado") — advise that commits communicate updates; comments should add context not obvious from the diff.
+
+This feedback is educational, not part of the formal review findings. Keep it constructive — the goal is to help the dev build better habits, not to lecture.
 
 ### 7. Propagate Decisions
 
@@ -412,4 +436,5 @@ When writing a fix guide that restructures error handling (try/except boundaries
 - Don't commit review reports to develop — they belong on the PR branch (see Step 6 branch placement rules)
 - Don't put action items in ADRs — ADRs are decisions, not task trackers. Action items go in the fix guide or issue updates
 - Don't update only the directly affected task spec — grep for all consumers of a changed contract (ports, entity APIs) across `docs/tasks/` and GitHub issues
-- Don't post a new GitHub review if one already exists — edit the existing review to avoid duplicates
+- Don't overwrite a prior round's GitHub review with the current round — each round is a historical record; post R2+ as a new PR comment
+- Don't enumerate every cascading file in fix guides — state the principle and entry point; the dev owns the follow-through
