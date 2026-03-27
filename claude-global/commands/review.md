@@ -72,14 +72,15 @@ Before forming any opinions, check if this is a continuation of prior work:
 - **Prior review artifacts**: Check `docs/reviews/` for existing reports on the same PR/branch. Read them in full — they contain findings, decisions, and fix guides that inform this round.
 - **PR review history**: For `pr` scope, read all prior review bodies and comments (`gh pr view <number> --json reviews`). Understand what was already requested and what was fixed.
 - **Spec/plan referenced**: If the prior review links a spec, read it to understand the contract being reviewed against. **Always search for task-specific specs** on the base branch (e.g., `git show origin/develop:docs/tasks/task-NNN-*.md`) — the PR branch may not have them, and the issue may link a stale overview instead of the detailed spec. Also check the linked GitHub issue for spec references.
-- **Recent project reviews (this week)**: Scan `docs/reviews/` for reports from the last 7 days across all PRs (not just the current one). Also check recently merged/closed PRs (`gh pr list --state all --limit 10`). Recent reviews surface emerging conventions, recurring anti-patterns, and decisions that apply project-wide. Use them to:
+- **Recent project reviews (this week)**: Scan `docs/reviews/` for reports from the last 7 days across all PRs (not just the current one). **Review reports live on PR branches, not develop** — check open PR branches (`gh pr list --limit 10`, then `git show origin/<branch>:docs/reviews/`) and recently merged/closed PRs (`gh pr list --state all --limit 10`). Recent reviews surface emerging conventions, recurring anti-patterns, and decisions that apply project-wide. Use them to:
   - Enforce conventions established in other PRs this week (even if not yet in convention docs)
   - Detect the same anti-pattern appearing across concurrent PRs
   - Avoid contradicting a decision made in a sibling review
+  - **Calibrate depth**: Read 1-2 recent reports in full to match the expected level of analysis (Root Cause Analysis depth, Spec Compliance table granularity, Bot Verification thoroughness). A shallow report in a project with deep reports signals insufficient analysis.
 
 **Why this matters**: Without prior state, you re-derive context from scratch — slower, and risks contradicting decisions already made. Iterative artifacts accumulate decisions; ignoring them means reviewing in a vacuum. Recent cross-PR reviews prevent convention drift between parallel workstreams.
 
-**For first reviews**: Skip same-PR prior state, but still load recent project reviews. For subsequent rounds: the prior review is as important as the diff itself.
+**For first reviews**: Skip same-PR prior state, but still load recent project reviews for depth calibration and cross-PR patterns. For subsequent rounds: the prior review is as important as the diff itself.
 
 ### 2. Cross-Environment Context Gathering
 
@@ -106,6 +107,7 @@ Before forming opinions, gather context that cuts across environments. This step
 
 **For architecture/convention violations** (import direction, layer placement, pattern choices):
 - For each suspected violation, grep the spec (`docs/tasks/`), linked issue body, and convention docs for the exact code pattern (import path, function name, lock type, etc.)
+- **Spec archaeology**: Check the spec **as it existed when the dev started**, not the current version. Use `git log --format="%ai %s" -- docs/tasks/task-NNN-*.md` to find the timeline, then `git show <commit-before-PR>:docs/tasks/task-NNN-*.md` to read the version the dev worked from. Convention docs and specs may have been corrected during sibling PR reviews — the current spec may say `interfaces/api/` while the dev's version said `infrastructure/adapters/api/`.
 - If the spec or issue directed the dev to use the pattern, the finding is **spec-caused** — the reviewer applies the fix and updates the spec, not the dev
 - Example: finding `from interfaces.api... import detection_event_to_dto` → grep spec for `detection_event_to_dto` and `interface layer` to check if the spec told the dev to do this
 
