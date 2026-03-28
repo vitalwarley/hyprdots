@@ -1,0 +1,3 @@
+[submodule "claude-global/vendor/obsidian-skills"]
+	path = claude-global/vendor/obsidian-skills
+	url = https://github.com/kepano/obsidian-skills.git

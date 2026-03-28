@@ -1,0 +1,6 @@
+[Unit]
+Description=Refresh vault-state.md from filesystem
+
+[Service]
+Type=oneshot
+ExecStart=/home/warley/life/scripts/generate-vault-state.sh
