@@ -85,7 +85,7 @@ Um bullet = um assunto. Tag no fim do bullet de abertura ou do bullet relevante.
 -
 ```
 
-3. Append to `## Log` at the correct chronological position:
+3. Append to `## Log` at the correct chronological position using the **Edit tool** (not Write). The daily note uses **tab indentation** — match exactly (tab for sub-bullets, two tabs for sub-sub-bullets):
 
 ```
 - HH:MM
