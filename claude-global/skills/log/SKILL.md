@@ -24,6 +24,8 @@ Appends a concise summary of the current Claude Code session to the vault's dail
 
 Also read `~/life/notes/.claude/CLAUDE.md` if it exists (may have local skill context).
 
+**Vault access**: always use Read/Edit/Write directly on vault paths. Never use Obsidian MCP tools — this skill runs in Claude Code, which has filesystem access.
+
 ## Step 1: Determine Mode
 
 Parse `$ARGUMENTS`:
