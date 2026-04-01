@@ -6,7 +6,8 @@
 
 ## Claude Tooling (commands, skills, hooks)
 - **Source of truth**: `~/life/2-areas/dev-tools/hyprdots/claude-global/commands/`, `.../skills/`, `.../hooks/` — to find or edit any command/skill/hook, go here directly (don't search ~/.claude/ with find/readlink)
-- all commands (`~/.claude/commands/`), skills (`~/.claude/skills/`), and hooks (`~/.claude/hooks/`) are symlinks to `~/life/2-areas/dev-tools/hyprdots/claude-global/` — source of truth is git-tracked there
+- all commands (`~/.claude/commands/`), skills (`~/.claude/skills/`), hooks (`~/.claude/hooks/`), and `~/.claude/CLAUDE.md` itself are symlinks to `~/life/2-areas/dev-tools/hyprdots/claude-global/` — source of truth is git-tracked there
+- **commit and push rule**: when editing any of these files, commit and push in the **hyprdots repo** (`~/life/2-areas/dev-tools/hyprdots/`), never in `~/.claude/` or `~/life/` — those paths are symlinks, not repos
 - systemd user units (`~/.config/systemd/user/`) are symlinks to `~/life/2-areas/dev-tools/hyprdots/.config/systemd/user/` — same git-tracked pattern
 - to edit: use Edit tool (follows symlink, edits the versioned file directly)
 - if Write tool is used on a command/skill/hook, it replaces the symlink with a plain file — must re-create the symlink afterward: `ln -sf <hyprdots-path> <global-path>`
@@ -64,6 +65,10 @@
 - review error handling by **scope** (what's inside the try block) not just **handler** (what's in the except) — unrelated operations sharing a try block cause misattributed failures
 - on iterative reviews, classify every new finding by origin: pre-existing (missed before), review-induced (caused by a prior fix guide), or genuinely new — this surfaces review process failures
 - never suggest an implementation without verifying it exists in types/docs/source — a fix guide the dev follows literally that introduces a new bug is a review failure
+- scope completeness and code quality are orthogonal — always read the spec before assessing code quality. A PR with perfect code that misses half the requirements is still critically incomplete. Spec-first → code-second.
+- before attributing scope gaps to the dev, check their actual contract (issue body vs spec) — if the issue was never updated after the spec was enriched, the gap is process-caused, not dev negligence
+- after applying reviewer fixes or updating finding statuses, re-read Verdict + Fix Guide for coherence — incremental updates without a consistency pass create empty verdicts and stale fix guides
+- operational learnings from retros go in the relevant skill definition, not in memory — memory is for user/project context, skills are for repeatable process rules
 
 ## Code Quality & Style
 - python: use type hints, Pydantic Settings, dataclasses, enums for type safety
@@ -117,6 +122,7 @@
 - weekly doc sync: when specs and implementation diverge, update spec first then propagate to dependent docs (attack plan → issues → data-sources)
 - lint auto-fix: review diffs for side-effect imports and architectural wiring before accepting
 - MCP GitHub tools are unreliable (wrong names, 401 credentials) — prefer `gh` CLI for all GitHub operations; inspect available MCP tools before calling
+- Obsidian vault (`~/life/notes/`): when session has local filesystem access (working dir inside `~/life/` or `/tmp`), use Read/Edit/Write/Glob/Grep directly on vault paths — do NOT use Obsidian MCP tools, which add overhead. MCP tools are for the vault Claudian plugin (sandboxed, cannot access filesystem)
 - documentation: design for dual consumers (AI agent context injection + human team navigation) — single source of truth per topic
 - multi-source synthesis (minutes, follow-ups, reports): after initial draft, self-audit each claim against its specific source — plausible-but-wrong items are the most damaging errors
 
