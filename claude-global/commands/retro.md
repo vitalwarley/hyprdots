@@ -56,9 +56,10 @@ Bullet list of approaches that worked. Be specific — "bot comment verification
 
 Group by type:
 - **Skill updates**: changes to commands/skills in `~/.claude/commands/` or `~/.claude/skills/`
-- **Memory entries**: new feedback/user/project memories to save
 - **Convention updates**: changes to project CLAUDE.md, convention docs, or templates
 - **Workflow changes**: process improvements not captured by the above
+
+**Operational learnings go in the skill, not in memory.** If a finding reveals a gap in how a skill works (e.g., /review skipped spec loading), the fix is updating the skill definition — not saving a memory entry. Memory is for user preferences, project context, and references. Repeatable process rules belong in the skill that executes them.
 
 For each improvement, state:
 1. What to change
@@ -68,10 +69,10 @@ For each improvement, state:
 ### 3. Act on approved improvements
 
 After presenting the retrospective, ask the user which improvements to apply. Then execute them:
-- **Memory entries**: save immediately
-- **Skill updates**: edit the skill file
+- **Skill updates**: edit the skill file (operational learnings go here)
 - **Convention updates**: commit to the appropriate branch
 - **Workflow changes**: update CLAUDE.md or relevant docs
+- **Memory entries**: only for user preferences, project context, or references — NOT for operational process rules
 
 Do NOT apply improvements without user approval. Present first, act second.
 
