@@ -97,6 +97,7 @@
 ## Workflow & Efficiency
 - CLAUDE.md: keep concise — dense index linking to canonical docs, not a reference manual
 - CLAUDE.md vs MEMORY.md: if it contradicts/updates something already in CLAUDE.md → update CLAUDE.md directly; if it's a project-level process any Claude session should follow → CLAUDE.md; if it's about how I interact with this specific user → memory
+- **per-project session history**: auto-diary writes `.claude/memory.md` in each project — a numbered list of diary files with one-line summaries; read it first when asked about past sessions, then read the linked diary for full context
 - before debugging from scratch, search diaries for similar past issues — environment/config problems are almost always recurring
 - diaries are point-in-time snapshots, not authoritative — when they contradict current state, verify and promote confirmed facts to CLAUDE.md via /reflect
 - read files to understand current state before editing

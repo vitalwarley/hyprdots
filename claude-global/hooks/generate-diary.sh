@@ -277,4 +277,41 @@ grep -v "| $DIARY_BASENAME |" "$INDEX_FILE" > "${INDEX_FILE}.tmp" 2>/dev/null ||
 mv "${INDEX_FILE}.tmp" "$INDEX_FILE"
 echo "$ENTRY <!-- $SESSION_ID -->" >> "$INDEX_FILE"
 
+# --- Update project memory index (.claude/memory.md) ---
+# Creates a per-project session index so Claude can find past conversations quickly
+if [[ -n "$CWD" && -d "$CWD/.claude" ]]; then
+    PROJ_MEMORY="$CWD/.claude/memory.md"
+
+    # Initialize if missing
+    if [[ ! -f "$PROJ_MEMORY" ]]; then
+        cat > "$PROJ_MEMORY" <<'MEMHEADER'
+# Session History
+
+Past session diaries for this project. Read the linked diary for full context.
+
+MEMHEADER
+    fi
+
+    # Build diary path reference
+    DIARY_RELPATH="~/.claude/memory/diary/$DIARY_BASENAME"
+    if [[ "$DIARY_DIR" == *"exports/claudian"* ]]; then
+        DIARY_RELPATH="~/life/notes/resources/exports/claudian/$DIARY_BASENAME"
+    fi
+
+    # Remove previous entry for this exact diary file (handles version updates)
+    grep -v "$DIARY_BASENAME" "$PROJ_MEMORY" > "${PROJ_MEMORY}.tmp" 2>/dev/null || true
+    mv "${PROJ_MEMORY}.tmp" "$PROJ_MEMORY"
+
+    # Remove trailing blank lines for clean append
+    sed -i -e :a -e '/^\n*$/{$d;N;ba' -e '}' "$PROJ_MEMORY"
+
+    # Count existing entries to determine next number
+    ENTRY_NUM=$(grep -c '^[0-9]\+\.' "$PROJ_MEMORY" 2>/dev/null || echo 0)
+    ENTRY_NUM=$((ENTRY_NUM + 1))
+
+    echo "" >> "$PROJ_MEMORY"
+    echo "${ENTRY_NUM}. \`${DIARY_RELPATH}\`" >> "$PROJ_MEMORY"
+    echo "    - ${SUMMARY:-No summary available}" >> "$PROJ_MEMORY"
+fi
+
 rm -f "$META_FILE"

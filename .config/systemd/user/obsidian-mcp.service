@@ -1,0 +1,15 @@
+[Unit]
+Description=Obsidian MCP Server (Enhanced)
+After=network.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/warley/life/2-areas/obsidian-mcp/obsidian-mcp-server-enhanced
+ExecStart=/usr/bin/node /home/warley/life/2-areas/obsidian-mcp/obsidian-mcp-server-enhanced/dist/index.js
+Restart=on-failure
+RestartSec=5
+Environment=NODE_ENV=production
+Environment=NODE_TLS_REJECT_UNAUTHORIZED=0
+
+[Install]
+WantedBy=default.target

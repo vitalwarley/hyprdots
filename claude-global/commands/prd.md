@@ -41,12 +41,16 @@ Present the user with structured questions using AskUserQuestion. Cover:
 
 Do NOT generate a wall of questions. Ask 2-3 at a time, iterate based on answers.
 
-### 3. Research (if needed)
+### 3. Research (always for non-trivial features)
 
-If the feature involves unfamiliar libraries, patterns, or APIs:
-- Search web for current best practices
-- Check existing codebase for similar patterns
-- Read relevant dependency docs
+Even for "simple" features, research prevents reinventing patterns that have known best practices:
+
+- **Web search** for current (2025-2026) industry best practices for the specific pattern (e.g., "runtime configuration FastAPI", "settings UI UX patterns")
+- **Framework precedents**: How do Django, Spring Boot, Rails solve this? What's the canonical pattern?
+- **Existing codebase**: Grep for similar patterns already in the project — reuse over reinvention
+- **Cite sources** in a `docs/research/<feature>.md` artifact linked from the PRD
+
+The research doc should be concise and decision-oriented — not a literature review. Structure: options table → recommendation → sources.
 
 ### 4. Generate Spec File
 
@@ -60,6 +64,8 @@ If the feature involves unfamiliar libraries, patterns, or APIs:
 **Created**: YYYY-MM-DD
 **Issue**: #N (if applicable)
 **Status**: Draft
+**Research**: [link to docs/research/<feature>.md if produced]
+**Attack Plan**: [link to docs/plans/<feature>-attack.md when created]
 
 ## Problem Statement
 
@@ -77,40 +83,41 @@ If the feature involves unfamiliar libraries, patterns, or APIs:
 ### Out of Scope
 - Explicitly excluded items
 
-## Design
-
-### Approach
-
-Describe the chosen approach in 1-2 paragraphs. Reference existing patterns in the codebase.
-
-### Key Decisions
+## Key Decisions
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
 | ... | ... | ... |
 
-### Files to Create/Modify
+Only decisions that constrain the solution space (storage choice, API shape, UI pattern).
+Not implementation details (file structure, build steps, test fixtures).
 
-| File | Action | Purpose |
-|------|--------|---------|
-| ... | create/modify | ... |
+## User Flow
 
-## Build Order
+Mermaid diagram or bullet list showing user-facing interactions.
 
-1. **Step 1**: Description → creates X, modifies Y
-2. **Step 2**: Description → depends on step 1
-3. **Step 3**: Description → can parallel with step 2
+## Acceptance Criteria
 
-## Test Strategy
-
-- Unit tests for: ...
-- Integration tests for: ...
-- Manual verification: ...
+- [ ] Observable, testable behavior the feature must satisfy
+- [ ] Written from the user's or API consumer's perspective
+- [ ] Not how to test — what to verify
 
 ## Open Questions
 
-- [ ] Question that needs answering during implementation
+- [ ] Unresolved requirement-level questions (not implementation questions)
 ```
+
+**What does NOT belong in the PRD** (put these in the attack plan instead):
+
+- Architecture/approach details (module patterns, dependency wiring)
+- Design philosophy analysis (Ousterhout, etc.)
+- Files to create/modify
+- Build order / waves
+- Test strategy (unit/integration/fixtures)
+- Concurrency model, sequence diagrams of internal flows
+- Code-level concerns (constructor signatures, caching strategies)
+
+The PRD owns **what** and **why**. The attack plan (`/attack-plan`) owns **how**.
 
 ### 5. Review with User
 
@@ -129,10 +136,12 @@ Only do this if user confirms. Some projects don't use issues.
 ## Design Principles
 
 - **Iterate, don't dump**: Short questions, build understanding incrementally
-- **Respect existing patterns**: Read the codebase before proposing architecture
+- **Research before designing**: Even simple features have known best practices — find them
+- **Respect existing patterns**: Read the codebase before proposing architecture; grep for precedents
+- **Verify every claim**: File paths, function names, caching behavior — all must match current code
+- **PRD = requirements contract**: Stable, reviewed by stakeholders. Implementation details change often and belong in the attack plan
 - **Spec is a living document**: Mark it Draft → Approved → Implementing → Done
-- **Build order matters**: Dependencies between steps must be explicit
-- **Test strategy upfront**: Not an afterthought
+- **Acceptance criteria over test strategy**: The PRD says what to verify; the attack plan says how to test it
 
 ## Anti-Patterns
 
@@ -140,3 +149,4 @@ Only do this if user confirms. Some projects don't use issues.
 - Don't propose architecture without reading existing code
 - Don't skip the "Out of Scope" section — scope creep starts here
 - Don't create GitHub issues without user confirmation
+- Don't put implementation details in the PRD — no build order, no file lists, no test fixtures, no code-level design. These belong in `/attack-plan`
