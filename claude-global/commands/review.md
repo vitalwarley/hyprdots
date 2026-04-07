@@ -83,6 +83,8 @@ Before forming any opinions, check if this is a continuation of prior work:
 
 **For first reviews**: Skip same-PR prior state, but still load recent project reviews for depth calibration and cross-PR patterns. For subsequent rounds: the prior review is as important as the diff itself.
 
+**Depth calibration is mandatory on first reviews.** Read at least 1 recent review report in full *before writing anything*. Match its structure: if recent reports have Root Cause Analysis with timelines, dual spec compliance tables, process feedback, and cross-PR patterns — yours must too. A first review that skips this step consistently produces shallow reports that require full rewrites. This is the single most common review failure mode.
+
 ### 2. Cross-Environment Context Gathering
 
 Before forming opinions, gather context that cuts across environments. This step prevents the anchoring bias of reviewing config in isolation.
@@ -126,6 +128,9 @@ Before launching any agents, run these in parallel (~5s total):
 pytest --collect-only <changed-test-files>  # catches ModuleNotFoundError, broken imports
 
 # 3. Tests covering changed code
+# NOTE: Some projects require PYTHONPATH=. for pytest to find modules.
+# Check how prior reviews ran tests (search review reports for pytest commands).
+# Common pattern: PYTHONPATH=. uv run pytest <test-files>
 <project-test-cmd> <relevant-test-files>
 
 # 4. Convention violation scan
@@ -208,15 +213,23 @@ Combine all agent outputs into a single structured report. **Always save to file
 Full report template (for file only):
 
 ```markdown
-# Review Report
+# Review Report — PR #<number>
 
-**Scope**: <what was reviewed>
+**Scope**: PR #<number> — `<PR title>`
+**Base**: `<base-branch>` (stacked on parent feature branch / targets develop)
+**Author**: <author> (<name>)
 **Files**: <count> files, <additions>+/<deletions>-
 **Date**: YYYY-MM-DD
+**Round**: <1, 2, ...>
+**PR**: <PR URL>
+**Spec**: `<spec path>` (<subtask reference>)
+**Issue**: #<number>
+
+**Mechanical checks**: Linter: <N violations summary>. Tests: <N/N pass> (`<exact command used>`). Import collection: <clean/errors>.
 
 ## Summary
 
-<2-3 sentence overall assessment>
+<2-3 sentence overall assessment. Include: what's well-done, what blocks merge, and any cross-PR concerns.>
 
 ## Findings
 
@@ -224,69 +237,118 @@ Every finding has a unique ID (C1, W1, S1) for cross-referencing in fix guides, 
 
 ### Critical (must fix before merge)
 
-**C1** — Short title ✅/⏳ `commit` or status
+**C1** — Short title ⏳
 - **File**: `file.py:line`
 - **Principle**: The design rule being violated.
 - **Issue**: What's wrong and what happens at runtime.
+- **Evidence**: How you verified this (test output, grep, code trace).
+- **Downstream impact**: What breaks if unfixed (other PRs, runtime behavior).
 
 ### Warnings (should fix)
 
-**W1** — Short title ✅/⏳ `commit` or status
+**W1** — Short title ⏳
 - **File**: `file.py:line`
+- **Principle**: Rule or convention reference.
 - **Issue**: Description of concern.
 
 ### Suggestions (nice to have)
 
-**S1** — Short title ✅/⏳ `commit` or status
+**S1** — Short title ⏳
 - **File**: `file.py:line`
 - **Issue**: Improvement opportunity.
 
 ## Agent Reports
 
 ### Code Quality
-<Summarized findings from code-reviewer>
+<Summarized findings from code-reviewer. Include positive observations (what follows conventions well) alongside issues.>
 
 ### Error Handling
-<Summarized findings from silent-failure-hunter>
+<Summarized findings from silent-failure-hunter.>
 
 ### Type Design
-<Summarized findings from type-design-analyzer, or "No new types introduced">
+<Summarized findings from type-design-analyzer, or "No new types introduced.">
 
 ### Comment Quality
-<Summarized findings from comment-analyzer, or "No significant comment changes">
+<Summarized findings from comment-analyzer, or "No significant comment changes.">
 
-## Image Evaluation
+## Scope Check
 
-Screenshots attached to the PR, evaluated against spec/design expectations.
-
-| Screenshot | What it shows | Expected | Matches? | Notes |
-|------------|---------------|----------|----------|-------|
-| `screenshot.png` | What the screenshot depicts | What spec/design requires | ✅/⚠️/❌ | Details |
-
-*If no screenshots attached: "No screenshots provided — request from PR author if UI changes are involved."*
-*Omit this section entirely if the PR has no UI changes.*
+<List all changed files and verify they belong to the PR's stated architecture layer. Flag any out-of-scope files.>
 
 ## Spec Compliance
 
-Cross-reference implementation against the PRD/spec requirements.
+### Issue #<N> Acceptance Criteria (dev's actual contract)
+
+| Requirement (from issue) | Status | Evidence |
+|--------------------------|--------|----------|
+| Requirement text | ✅/❌ | File:line or test name |
+
+**Result**: X/Y issue criteria met.
+
+### Spec Subtask <ID> (authoritative requirements)
 
 | Requirement (from spec) | Status | Evidence | Gap |
-|--------------------------|--------|----------|-----|
-| Requirement text | ✅/❌ | How verified | Missing feature or — |
+|-------------------------|--------|----------|-----|
+| Requirement text | ✅/❌ | How verified | Finding ID or — |
 
-*Source: link to PRD/spec section. Omit this section if no spec exists for the work.*
+**Result**: X/Y spec subtask criteria met.
+
+### Spec Component Specification (full spec, beyond subtask scope)
+
+| Field/Requirement | In subtask scope? | Implemented? | Notes |
+|-------------------|------------------|--------------|-------|
+| Field or method | ✅/❌ | ✅/❌ | S1 — reason |
+
+*Sources: spec path, issue URL.*
+
+## Root Cause Analysis
+
+### Timeline
+
+| Date | Event | Relevance |
+|------|-------|-----------|
+| YYYY-MM-DD | Issue created | Dev's work contract |
+| YYYY-MM-DD | Spec committed (`hash`) | Authoritative requirements |
+| YYYY-MM-DD | First PR commit (`hash`) | Implementation started |
+| YYYY-MM-DD | PR opened | — |
+| YYYY-MM-DD | Bot review / refactor commits | Relevant context |
+| YYYY-MM-DD | This review | — |
+
+### Issue↔Spec Scope Alignment
+
+<Compare issue AC vs spec subtask AC. State whether they align or diverge. If diverge, attribute scope gaps to process, not the dev.>
+
+### Finding Attribution
+
+| Finding | Root cause | Classification |
+|---------|------------|----------------|
+| C1 | Description | **Dev issue** / **Spec-caused** / **Process gap** / **Dev oversight** |
+
+### Cross-PR Patterns
+
+<Recurring issues across PRs (lint violations, naming, etc.). Include data from recent review reports.>
 
 ## Spec Divergence Analysis
 
-When the spec/issue contains stale or inconsistent instructions, findings must be attributed to their root cause. Not all "wrong code" is a developer mistake — some is caused by following incorrect documentation.
+### Divergences where the dev is correct (spec needs updating)
 
-| Finding | What dev followed | What's correct | Root cause |
-|---------|-------------------|----------------|------------|
-| ID | Spec/issue instruction | Convention or correct spec section | **Stale spec** / **Dev issue** |
+| Finding | What dev did | What spec says | Root cause | Resolution |
+|---------|-------------|----------------|------------|------------|
+| Description | Dev's choice | Spec text | **Stale spec** | ✅ `hash` / ⏳ pending |
 
-For each **stale spec** finding: note what doc needs updating and whether the reviewer will apply the code fix (since it's not the dev's fault). For each **dev issue**: the dev is responsible for fixing it.
+### Divergences that are design decisions (need team alignment)
 
-*Omit this section if spec and implementation are aligned. Include whenever findings trace to documentation inconsistencies — this surfaces the real problem (docs, not people) and prevents the same issue on future PRs.*
+| Finding | What dev did | What spec says | Impact |
+|---------|-------------|----------------|--------|
+| Description | Dev's choice | Spec text | What happens if unresolved |
+
+### Divergences caused by subtask scoping (not gaps)
+
+| Field | In subtask scope? | In full component spec? | Status |
+|-------|-------------------|------------------------|--------|
+| Field name | ❌ | ✅ | S1 — recommend adding / low urgency |
+
+*Omit subsections that have no entries. Include whenever findings trace to documentation inconsistencies.*
 
 ## Previous Review Findings
 
@@ -300,13 +362,13 @@ Track status of findings from prior review rounds on the same PR/branch.
 
 ## Bot Comments Verification
 
-Automated review comments (Gemini, CodeRabbit, etc.) verified against actual code.
-
 | Bot | Comment | Claim | Verified? | Verdict |
 |-----|---------|-------|-----------|---------|
 | bot-name | Comment summary | What it claims | ✅/❌ | Action taken or why wrong |
 
 *Rule: never agree with a bot comment without verifying — treat as unverified claim.*
+
+*Timeline rule: compare the bot's `submittedAt` timestamp against the PR commit log (`git log --oneline`). If the PR has commits **after** the bot review, the bot reviewed earlier code that may have been refactored since. Verify against the current HEAD, but credit the bot (and the dev) if the suggestion was already applied in a later commit.*
 
 ## Finding Provenance (for round 2+ reviews)
 
@@ -325,11 +387,9 @@ Classify each new finding by origin to surface review process failures:
 
 ## Convention Updates
 
-New patterns or architectural decisions surfaced by this review that should be codified.
-
-| Convention Doc | Action | Description |
-|----------------|--------|-------------|
-| `docs/CONVENTIONS.md` | New / Update / Violated | What to add, change, or reference |
+| Convention Doc | Action | Description | Status |
+|----------------|--------|-------------|--------|
+| `docs/CONVENTIONS.md` | New / Update / Violated | What to add, change, or reference | ✅ `hash` / ⏳ proposed |
 
 *Omit this section if no convention updates are needed.*
 
@@ -339,6 +399,26 @@ New patterns or architectural decisions surfaced by this review that should be c
 [ ] Needs changes (see Critical findings)
 [ ] Needs discussion (see Open Questions)
 
+<Brief explanation: which findings are dev-owned, which are spec-caused, what blocks merge.>
+
+## Process Feedback
+
+<Educational, not part of formal findings. Address recurring patterns directly:>
+- **Lint**: <lint violation count + cross-PR pattern if recurring>
+- **Test coverage**: <gaps in test strategy, missing default-path tests>
+- **Coordination**: <cross-PR concerns, overlapping code with sibling PRs>
+- **Commit hygiene**: <generic messages, artifact handling>
+
+*Omit this section if no process feedback is warranted.*
+
+## Documentation Fixes Applied (by reviewer)
+
+| Fix | Branch | Commit | Description |
+|-----|--------|--------|-------------|
+| Short description | develop / PR branch | `hash` | What was changed |
+
+*Omit if the reviewer did not apply any doc fixes.*
+
 ## Reviewer-Applied Fixes
 
 When the reviewer applies code fixes (typically for spec-divergence issues that are not the dev's fault), list them with commit hashes. Each finding resolved by a reviewer fix must be marked ✅ with the commit hash inline.
@@ -347,7 +427,7 @@ When the reviewer applies code fixes (typically for spec-divergence issues that 
 |-----|--------|-------------------|
 | Short description | `abc1234` | C1, C2, W1 |
 
-*Omit this section if the reviewer did not apply any fixes. See §6 "Reviewer-applies-fixes" for rules.*
+*Omit this section if the reviewer did not apply any code fixes. See §6 "Reviewer-applies-fixes" for rules.*
 
 ## Fix Guide (if Critical or Warning findings exist)
 
