@@ -182,3 +182,21 @@ Mark resolved items ✅ with a reference to the new audit document.
 3. **Verified numbers only**: the JSON in `results/embedding_analysis/` is the source of truth; the audit certifies it
 4. **Safe claims explicit**: every audit ends with what CAN and CANNOT be claimed in the paper
 5. **One audit per metric**: don't fold multiple metrics into one document — keep them linkable individually
+
+## Standard Diagnostic Checks for Per-Family / Group Metrics
+
+When a metric aggregates over groups (families, classes, clusters), always check:
+
+- **Group-size confound**: Is the metric bounded by group size (e.g., ER ≤ N−1)? If so,
+  plot metric vs group_size. If they correlate tightly, the metric is a proxy for sample count,
+  not geometry. Report ER/max_ER or another normalized variant.
+- **ER ≈ N−1 interpretation**: Effective rank close to the maximum possible rank means within-group
+  variance is nearly isotropic — no dominant group-specific axis. This implies the backbone does
+  *not* organize within-group structure; training may improve between-group separation (Fisher)
+  without creating tighter within-group clusters.
+- **Validation status of sub-metrics**: Fisher ratio, per-family ER, and SV alignment are
+  computed in the same pipeline but answer different questions and have different validation
+  histories. Document the validation status of each separately in the audit.
+- **Label purity**: If analysis uses a pair file to derive class labels, verify that all pairs
+  are "pure" for the class of interest (e.g., kin-only for kinship analysis). Mixed pairs inflate
+  within-class scatter and deflate Fisher ratio. Document whether results are all-pairs or class-pure.
