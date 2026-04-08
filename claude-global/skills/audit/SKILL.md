@@ -183,20 +183,18 @@ Mark resolved items ✅ with a reference to the new audit document.
 4. **Safe claims explicit**: every audit ends with what CAN and CANNOT be claimed in the paper
 5. **One audit per metric**: don't fold multiple metrics into one document — keep them linkable individually
 
-## Standard Diagnostic Checks for Per-Family / Group Metrics
+## Additional Design Principles
 
-When a metric aggregates over groups (families, classes, clusters), always check:
-
-- **Group-size confound**: Is the metric bounded by group size (e.g., ER ≤ N−1)? If so,
-  plot metric vs group_size. If they correlate tightly, the metric is a proxy for sample count,
-  not geometry. Report ER/max_ER or another normalized variant.
-- **ER ≈ N−1 interpretation**: Effective rank close to the maximum possible rank means within-group
-  variance is nearly isotropic — no dominant group-specific axis. This implies the backbone does
-  *not* organize within-group structure; training may improve between-group separation (Fisher)
-  without creating tighter within-group clusters.
-- **Validation status of sub-metrics**: Fisher ratio, per-family ER, and SV alignment are
-  computed in the same pipeline but answer different questions and have different validation
-  histories. Document the validation status of each separately in the audit.
-- **Label purity**: If analysis uses a pair file to derive class labels, verify that all pairs
-  are "pure" for the class of interest (e.g., kin-only for kinship analysis). Mixed pairs inflate
-  within-class scatter and deflate Fisher ratio. Document whether results are all-pairs or class-pure.
+6. **Check for sample-count confounds in group metrics**: if a metric has a theoretical bound
+   that scales with group size (e.g., rank ≤ N−1), verify that the observed values aren't just
+   tracking group size. A scatter plot of metric vs group size settles this; if correlated,
+   prefer a normalized variant.
+7. **Interpret metric saturation structurally**: when a metric is near its theoretical maximum,
+   state what that implies about the data, not just that the value is high.
+8. **One pipeline, multiple metrics — validate each separately**: a single script may produce
+   several quantities that answer different questions and have different validation histories.
+   Audit them independently; don't let a validated primary metric confer trust on co-computed ones.
+9. **Verify label purity for class-level analyses**: when class labels are derived from a
+   secondary source (pair file, metadata, external annotation), check that every sample's label
+   is valid for the specific analysis task. Mixed or approximate labels inflate within-class
+   scatter and bias class-separation metrics downward.
