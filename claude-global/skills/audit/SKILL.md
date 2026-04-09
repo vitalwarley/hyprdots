@@ -129,6 +129,15 @@ Status key: ✅ Verified | ⚠️ Assumed/partial | ❌ Known gap
 
 ---
 
+## Additional Diagnostics
+
+[Only present if you ran beyond-template analyses (null models, sensitivity,
+confound checks). Open with a scope note: which design principle triggered
+each diagnostic; whether it overlaps with deferred diagnostics from prior audits.
+If nothing beyond-template was run, omit this section entirely.]
+
+---
+
 ## Known Limitations
 
 | # | Limitation | Severity | Action |
@@ -198,3 +207,22 @@ Mark resolved items ✅ with a reference to the new audit document.
    secondary source (pair file, metadata, external annotation), check that every sample's label
    is valid for the specific analysis task. Mixed or approximate labels inflate within-class
    scatter and bias class-separation metrics downward.
+10. **Define concepts at first use in Post-Conditions**: if you introduce a term (e.g., "random
+    baseline", "SNR", "normalized variant") in a Post-Conditions table or result, add a brief
+    prose paragraph defining it immediately *before* that table. Do not defer the definition to
+    Critical Findings — by then the reader has already encountered the unexplained term.
+11. **Failing post-condition checks need narrative, not just evidence strings**: a ❌ row in the
+    Q-table must include: (a) what the check was testing and why it matters, (b) why the
+    threshold was chosen, (c) what the consequence is for the paper claim. ✅ rows can stay
+    brief. The more unexpected the failure, the more explanation it requires.
+12. **Additional Diagnostics section for beyond-template analyses**: when you run analyses that
+    go beyond the fixed Pre/Process/Post template (e.g., null models, sensitivity to
+    hyperparameters, confound checks), place them in a dedicated `## Additional Diagnostics`
+    section after Post-Conditions. Open the section with a scope note: which design principle
+    triggered each diagnostic, and whether any overlaps with deferred diagnostic gaps listed in
+    prior audits (note they are separate if so).
+13. **Preserve correct content when correcting a prior document**: when revising an earlier
+    audit or report because one finding was wrong, identify specifically what is preserved vs.
+    corrected. Do not replace whole sections if only one claim is wrong. A brief note like
+    "Definition preserved; causal interpretation corrected" in the updated section header
+    prevents accidental removal of still-valid content.
