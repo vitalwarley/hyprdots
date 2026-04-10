@@ -651,6 +651,16 @@ If any finding reveals a new pattern or an existing convention was violated:
 
 When user asks reviewer to apply fixes directly: one commit per fix, semantic message, update report with commit hash.
 
+#### On approval ("PR approved" or equivalent)
+
+When the user says the PR is approved, execute the full sequence without re-confirmation:
+1. Apply all remaining reviewer-owned findings (one commit per fix)
+2. Create GitHub issues for any deferred suggestions the user asks to track
+3. Update the report: mark findings resolved with commit hashes, flip Verdict to "Ready to merge", push
+4. Post the R2+ comment (`gh pr comment`) with R2 summary
+5. Post the Step 8 closing comment (teaching + próximos passos)
+6. Merge the PR (`gh pr merge <N> --merge`) — unless user says otherwise
+
 ---
 
 ### Step 7 — Propagate Decisions
