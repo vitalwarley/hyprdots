@@ -662,6 +662,45 @@ When a review produces an ADR or changes a contract:
 
 ---
 
+### Step 8 — Closing Comment (approval or final round)
+
+When the PR is ready to merge — either because it was clean on first review or all findings are resolved — post a closing GitHub comment (separate from the formal review) that:
+
+1. **States the verdict** clearly: approved, changes needed, or needs discussion
+2. **Teaches, not just judges**: for each finding the dev needed to fix (or the reviewer fixed on their behalf), explain *why* the rule exists and what breaks without it. Phrase this as learning, not criticism — the goal is that the dev doesn't need the same feedback on the next PR
+3. **Points to what was codified**: if convention docs were updated as a result of this review, mention the commit and section so the dev knows the rule is now official
+4. **Closes the loop with next steps**: mention what unblocks from this merge (dependent PRs, tasks, or milestones that were waiting on this)
+
+**Format**:
+```
+## Review — PR #<N> (Round <R>) ✅ Aprovado / 🔄 Alterações necessárias
+
+**Report**: [link to review file]
+
+### Resultado
+<1-2 sentences: verdict and what was resolved/remains.>
+
+### Para o dev — o que aconteceu e por que importa
+<One section per non-trivial finding. For each:>
+- What the rule is (concrete example: wrong vs right)
+- Why the rule exists (runtime impact, not just "convention says so")
+- Where it's codified if it was new
+
+### Próximos passos
+<What unblocks from this merge:>
+- PR #N (task name) was waiting on this — can now be reviewed/merged
+- Task XYZ moves to next phase
+- Any open items deferred to follow-up issue
+```
+
+**Rules**:
+- Post language matches the team's working language (Portuguese for this project)
+- Keep each teaching point under ~8 lines — dense but not exhausting
+- Never lecture on findings the dev got right — acknowledge what was well done
+- "Próximos passos" is mandatory when sibling PRs or tasks depend on this merge
+
+---
+
 ## Review Termination Rules
 
 | Round | Critical | Warnings | Suggestions |
