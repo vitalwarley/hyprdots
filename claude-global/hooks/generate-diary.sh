@@ -207,7 +207,7 @@ fi
 
 # --- Generate diary ---
 (cd /tmp && echo "$DIARY_PROMPT" | claude \
-    --model haiku --max-turns 5 --permission-mode bypassPermissions \
+    --model claude-haiku-4-6 --max-turns 5 --permission-mode bypassPermissions \
     --allowedTools Write \
     -p) 2>&1
 
@@ -279,7 +279,8 @@ echo "$ENTRY <!-- $SESSION_ID -->" >> "$INDEX_FILE"
 
 # --- Update project memory index (.claude/memory.md) ---
 # Creates a per-project session index so Claude can find past conversations quickly
-if [[ -n "$CWD" && -d "$CWD/.claude" ]]; then
+if [[ -n "$CWD" && "$CWD" != "/tmp" ]]; then
+    mkdir -p "$CWD/.claude"
     PROJ_MEMORY="$CWD/.claude/memory.md"
 
     # Initialize if missing
@@ -303,7 +304,7 @@ MEMHEADER
     mv "${PROJ_MEMORY}.tmp" "$PROJ_MEMORY"
 
     # Remove trailing blank lines for clean append
-    sed -i -e :a -e '/^\n*$/{$d;N;ba' -e '}' "$PROJ_MEMORY"
+    sed -i -e :a -e '/^[[:space:]]*$/{$d;N;ba' -e '}' "$PROJ_MEMORY"
 
     # Count existing entries to determine next number
     ENTRY_NUM=$(grep -c '^[0-9]\+\.' "$PROJ_MEMORY" 2>/dev/null || echo 0)
