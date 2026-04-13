@@ -6,7 +6,6 @@ waybar/theme.css
 # Files below are ignored because we don't customize them, not because HyDE overwrites them
 
 hypr/hyprland.conf
-hypr/hypridle.conf
 hypr/animations.conf
 hypr/pyprland.toml
 hypr/shaders.conf
