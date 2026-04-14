@@ -73,6 +73,7 @@ Pipeline scripts must:
 - Save output to `results/embedding_analysis/<metric>.json`
 - Process all 5 conditions (pretrained, baseline, hcl, random_scl, random_hcl) unless scoped otherwise
 - Include sample counts and metadata in the JSON output
+- Include a `--diagnostics` flag that runs confound/validation checks (e.g., sample-count correlation, negative-class homogeneity, direction-of-effect) and saves results to a separate `<metric>_diagnostics.json`. Ad-hoc verification logic that would otherwise be run in throwaway Bash+Python one-liners belongs here — if a check is worth citing in the audit doc, it must be reproducible from the script.
 
 ---
 
