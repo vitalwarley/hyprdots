@@ -104,6 +104,8 @@ If execution fails, diagnose and fix before proceeding — do not skip to post-c
    - Sample-count confound: if metric scales with group size, check correlation
    - Saturation: if near theoretical max/min, state structural implication
    - Verify label purity for class-level analyses
+   - Negative-class homogeneity: if the analysis partitions by group (e.g., relationship type), verify the negative class doesn't systematically differ across partitions (e.g., Kruskal-Wallis on non-kin distributions). If it does, per-group AUC differences may be artifacts of biased negative sampling.
+3. **Effect sizes**: report Cohen's d (or equivalent standardized measure) alongside any raw mean difference — raw Δ is uninterpretable without variance context
 3. **Formulate safe claim**:
    - **Rigorous** (well-defined metrics): specific values, clear direction, statistical backing
      > "Contrastive training expands local manifold dimensionality (7.3→8.5d)"
@@ -133,12 +135,24 @@ Complete the audit doc at `report/sprints/week-NN/<metric-slug>-audit.md` using 
 
 ---
 
+## Data Distribution
+[Table of group sizes and balance — always present when the analysis partitions data by group.
+Include totals and note any imbalances or low-count groups that affect interpretation.]
+
+---
+
 ## Pre-Conditions
 | # | Pre-condition | Status | Evidence |
 |---|--------------|--------|----------|
 | P1 | [condition] | ✅/⚠️/❌ | [source] |
 
 Status key: ✅ Verified | ⚠️ Assumed/partial | ❌ Known gap
+
+---
+
+## Pseudocode
+[Algorithm summary: inputs → transformations → outputs, 10-20 lines max.
+Makes the analysis reproducible at a glance without reading the full script.]
 
 ---
 
