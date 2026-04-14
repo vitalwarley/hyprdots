@@ -89,7 +89,7 @@ Verify done items against actual artifacts — do not mark done from memory alon
 For each new result or analysis completed this session:
 
 1. **Check if the result has a verified JSON** in `results/embedding_analysis/`. If not, note it as preliminary.
-2. **Check if an `/audit` document exists** for the metric. If not, the result cannot carry a safe claim.
+2. **Check if an audit doc with a Safe Claim section exists** for the metric (produced by `/implement` or `/audit`). If not, the result cannot carry a safe claim — mark as `⏳ Pending verification`.
 3. **Add a new subsection** under the appropriate parent (Corrective Track, Forward Track, Metric Audits, etc.) — or create a new top-level section if the work doesn't fit existing sections.
 4. **Add tables** in the format established by W15: conditions × metrics, with a Safe claim line.
 
@@ -173,7 +173,7 @@ When `--init` is passed or no report exists for the current week:
 ## Design Principles
 
 1. **Incremental, not batch**: run after each meaningful session, not only at week end — the report is always readable
-2. **Artifacts first**: only add a result to the report if the backing JSON or audit doc exists; preliminary findings go in a "Pending verification" note, not in a table
+2. **Artifacts first**: only add a result to the report if the backing JSON exists and the audit doc contains a Safe Claim section; preliminary findings go in a "Pending verification" note, not in a table
 3. **Never edit verified content**: if a prior value was wrong, append a correction subsection — don't overwrite; the audit trail is the value
 4. **Status vs Plan is the ground truth**: mark items done against actual file existence, not recollection
 5. **TL;DR last**: fill the TL;DR block at the end of the sprint, not at init — it summarizes what actually happened, not what was planned

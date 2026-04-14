@@ -8,6 +8,8 @@ allowed-tools: Read, Glob, Grep, Bash(git *), Bash(gh *), Bash(cd * && PYTHONPAT
 
 Produce a structured audit document for a metric or pipeline step, following the flywheel protocol established in this project. Covers pre-conditions (data integrity, assumptions), process (algorithmic correctness), and post-conditions (verified output values, safe claims for the paper).
 
+**Relationship to `/implement`**: `/implement` produces audit docs proactively during implementation. `/audit` is for re-auditing existing code (pre-`/implement` legacy, or when embeddings/checkpoints change and revalidation is needed).
+
 **Templates**:
 - Global methodology: `report/methodological-preconditions-audit.md`
 - Per-metric example: `report/sprints/week-15/twonn-audit.md`
