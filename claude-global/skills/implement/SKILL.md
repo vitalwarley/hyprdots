@@ -187,6 +187,12 @@ Makes the analysis reproducible at a glance without reading the full script.]
 
 ---
 
+## Figures
+[List all figures produced, one per line. Omit this section if the analysis produces no figures.]
+- `results/embedding_analysis/figures/<figure>.png` — [one-line description of what it shows]
+
+---
+
 ## Reproduction
 ```bash
 cd src/kinship-contrastive
