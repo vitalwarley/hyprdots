@@ -50,19 +50,26 @@ If either file is missing, ask the user to provide the team roster and output pa
 Structure (Portuguese):
 
 ```markdown
-# Ata do Daily — YYYY-MM-DD
+# Daily — YYYY-MM-DD
 
-**Sprint**: X | **Semana**: Y | **Data**: DD/MM/YYYY
+**Sprint N — Semana Y** | **Dia Z de W** | **HH:MM–HH:MM**
 
 ## Participantes
 
-| Nome | Presente |
-|------|----------|
-| ... | ✅/❌ |
+| Nome | Equipe | Presente |
+|------|--------|----------|
+| ... | ... | ✅/❌ |
+
+## Contexto do Projeto
+
+[Operational context — NOT a summary. Describe the current state the team is working in:
+sprint phase, what changed since last daily, constraints active (e.g. Bruno available only until Friday),
+key unblocks or new blockers. 1–3 sentences. Do NOT summarize what each person did.]
 
 ## Resumo por Membro
 
-### [Name]
+### [Name] (@handle)
+
 - **O que fez**: ...
 - **O que vai fazer**: ...
 - **Bloqueadores**: ...
@@ -77,14 +84,26 @@ Structure (Portuguese):
 |---|-------------|------------|--------|
 | 1 | ... | ... | 🟡/🟢/🔴 |
 
-### Follow-ups Recorrentes
+### Follow-ups do sprint (evolução)
 
-| Item | Status | Desde |
-|------|--------|-------|
-| ... | 🟡/🟢/🔴/⚪/🆕 | DD/MM |
+#### Dashboard (tdb-version-dashboard)
 
-## Contexto do Projeto
-(brief note on sprint phase, upcoming milestones)
+**Contexto**: [1 line — what moved since last daily]
+
+| ID | Item | Ref | [prev date] | [today date] | Próxima ação |
+|----|------|-----|-------------|--------------|--------------|
+| DXX | ... | #N | 🟡 | 🟡/🟢/🔴/⚪/🆕 | ... |
+
+**Contexto de issues**:
+
+[List only open issues referenced in the table above. One line each:
+`- [#N](url) — título curto — estado atual em 1 frase`
+Do NOT list closed issues here.]
+
+#### OCR (edgebr/toledo-ia)
+
+| ID | Item | Ref | [prev date] | [today date] | Próxima ação |
+|----|------|-----|-------------|--------------|--------------|
 ```
 
 ## Step 4: Save
