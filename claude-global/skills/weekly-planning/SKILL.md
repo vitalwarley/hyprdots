@@ -12,14 +12,18 @@ Updates the sprint planning document with a compressed summary of the previous w
 
 `$ARGUMENTS`: sprint and week (e.g., `sprint-4 week-3`) + optional additional context
 
-## Step 0: Load Project Context
+## Step 0: Verify current date
+
+Run `date` and record the result. Use this date for **all timestamps** in the document — changelog entries, strikethrough annotations, criterion completions. Never infer the date from filenames, conversation context, or system-injected `currentDate`.
+
+## Step 1: Load Project Context
 
 Read these files:
 
 1. **`.claude/context/team.md`** — roster, work areas
 2. **`.claude/context/meeting-config.md`** — output paths, repos, work areas, decision numbering
 
-## Step 1: Gather Sources (in parallel)
+## Step 2: Gather Sources (in parallel)
 
 1. **All dailies from previous week** — extract per-member progress, blockers, action items
 2. **Most recent weekly ata** — extract "O que manter", "O que revisar", decisions
@@ -29,7 +33,7 @@ Read these files:
 6. **Most recent follow-up** — for client-facing commitments
 7. **Relevant sprint issues** — for scope tracking
 
-## Step 2: Build Resolution Map
+## Step 3: Build Resolution Map
 
 Before writing anything, build a resolution map for every blocker/pending item:
 
@@ -41,7 +45,7 @@ Before writing anything, build a resolution map for every blocker/pending item:
 
 Rule: Never flag something as 🔴 blocked if the resolution map shows it's resolved.
 
-## Step 3: Compress Previous Week
+## Step 4: Compress Previous Week
 
 Format the previous week as a **compressed table** (not prose):
 
@@ -55,7 +59,7 @@ Format the previous week as a **compressed table** (not prose):
 **Migrou para semana N+1**: #XX, #YY (brief reason)
 ```
 
-## Step 4: Write Current Week Plan
+## Step 5: Write Current Week Plan
 
 Structure with tables per work area (from `meeting-config.md`):
 
@@ -76,7 +80,7 @@ Structure with tables per work area (from `meeting-config.md`):
 
 Mark aspirational items as "stretch goal".
 
-## Step 5: Update Standing Sections
+## Step 6: Update Standing Sections
 
 Update ALL of these sections in the planning doc:
 
@@ -89,21 +93,21 @@ Update ALL of these sections in the planning doc:
 
 If any of these sections don't exist in the planning doc, skip them.
 
-## Step 6: Update Risks
+## Step 7: Update Risks
 
 - ~~Strikethrough~~ resolved risks with resolution note
 - Add new risks from weekly ata / issue comments
 - Update mitigation status for active risks
 - Validate against resolution map (don't list resolved items as active)
 
-## Step 7: Append Changelog
+## Step 8: Append Changelog
 
 Add entry at the bottom:
 ```
 | DD/MM/YYYY | Semana N: [brief description of changes] |
 ```
 
-## Step 8: Review
+## Step 9: Review
 
 Present to user:
 - Summary of what changed
