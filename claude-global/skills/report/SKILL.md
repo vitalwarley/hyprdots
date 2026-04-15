@@ -16,7 +16,8 @@ Incrementally updates the running sprint report (`report/sprints/week-NN/experim
 
 | Input | Behavior |
 |-------|----------|
-| *(empty)* | Aggregate current session into running sprint report |
+| *(empty)* | Aggregate **current session only** into running sprint report |
+| `--all` | Aggregate all work since last report update (gap-fill across sessions) |
 | `--init` | Create a new sprint report for week N (see §Init Mode) |
 | `section <name>` | Update only the named section (e.g., `section hypothesis`) |
 
@@ -44,7 +45,9 @@ If it does not exist, switch to **§Init Mode**.
 
 ## Step 1: Identify What Is New
 
-Gather evidence of work done since the last report update. Run in parallel:
+**Scope rule**: by default (no args), aggregate only the **current conversation session** — work the user and Claude did together in this exchange. Do NOT pull in commits from other sessions even if they postdate the last report update. Use `--all` explicitly to gap-fill across sessions.
+
+Gather evidence of work done in the current session. Run in parallel:
 
 ```bash
 # commits since last report update
