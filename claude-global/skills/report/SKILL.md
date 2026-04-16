@@ -127,12 +127,39 @@ Add a row:
 
 ---
 
-## Step 8: Commit
+## Step 8: Sync Table of Contents
+
+The report must always have a `## Table of Contents` block immediately before `## TL;DR`. After all section edits are done, regenerate it by scanning the file for `## N.` headings and updating the TOC entries to match.
+
+Format:
+```markdown
+## Table of Contents
+
+- [TL;DR](#tldr)
+- [1. Section Title](#1-section-title)
+- [2. Section Title](#2-section-title)
+...
+- [N. Next (W<NN+1>)](#n-next-wnn1)
+```
+
+Anchor rules (GitHub-flavored markdown):
+- lowercase all text
+- replace spaces with `-`
+- strip all characters except alphanumerics, hyphens, and spaces
+- special cases: `&` → removed, `#NNN` issue refs → stripped, `(#NNN)` → stripped, `(` `)` → stripped
+
+If the TOC block doesn't exist yet (e.g., on a newly `--init`ed report), insert it between the header metadata block and `## TL;DR`.
+
+---
+
+## Step 9: Commit
 
 ```bash
 git add report/sprints/week-NN/experiments-results.md
 git commit -m "docs: update W<NN> report — <one-line summary of additions>"
 ```
+
+---
 
 ---
 
