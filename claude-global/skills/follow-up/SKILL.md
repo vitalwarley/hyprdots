@@ -1,5 +1,6 @@
 ---
 name: follow-up
+version: 1.0.0
 description: Generate a client-facing follow-up document for stakeholder meetings from daily/weekly minutes and project data. Use when asked to create follow-up, prepare client follow-up, or generate progress slides.
 allowed-tools: Read, Glob, Grep, Bash(gh *), Bash(git log *), Bash(date *), Write, Edit
 ---
