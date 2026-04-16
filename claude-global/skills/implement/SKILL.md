@@ -119,7 +119,12 @@ If execution fails, diagnose and fix before proceeding — do not skip to post-c
 
 ## Step 6: Finalize Audit Doc
 
-Complete the audit doc at `report/sprints/week-NN/<metric-slug>-audit.md` using the same structure as `/audit`:
+Complete the audit doc at `report/sprints/week-NN/<metric-slug>-audit.md` using the same structure as `/audit`.
+
+**Before writing**: if any scripts were dispatched as background tasks, estimate wall time upfront — `N_samples × N_passes × ~inference_time_per_sample`. If > 5 min, state the estimate explicitly so the user knows what to expect.
+
+**Before committing**: do a consistency pass — verify every Process table row marked ⚠️ or ❌ is an intentional gap, not a stale placeholder from a background task that has since completed. Cross-check each pending row against its corresponding results section. A ⚠️ "Running" row with a completed results section below it is a doc inconsistency.
+
 
 ```markdown
 # <Metric Name> Audit — Pre-Conditions, Process, Post-Conditions
@@ -202,7 +207,7 @@ PYTHONPATH=. uv run python scripts/compute_<metric>.py
 Commit: `<hash>` (YYYY-MM-DD)
 ```
 
-Fill all sections from Steps 2–5. Do not leave placeholder text.
+Fill all sections from Steps 2–5. Do not leave placeholder text. Apply the consistency pass above before proceeding to Step 7.
 
 ---
 
