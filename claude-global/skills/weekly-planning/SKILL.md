@@ -1,16 +1,19 @@
 ---
 name: weekly-planning
-description: Update sprint planning doc with current week's plan based on dailies, weekly ata, and issue state. Use when asked to update sprint planning, planejamento semanal, or weekly planning.
+version: 1.1.0
+description: Update sprint planning doc with current week's plan based on project sources and issue state. Portable: adapts to team (daily/weekly minutes) and solo research (experiment results + audit docs) workflows via .claude/context/meeting-config.md. Use when asked to update sprint planning, planejamento semanal, or weekly planning.
 allowed-tools: Read, Glob, Grep, Bash(gh *), Bash(git log *), Bash(date *), Write, Edit
 ---
 
 # /weekly-planning — Sources → Updated Sprint Planning Doc
 
-Updates the sprint planning document with a compressed summary of the previous week and a detailed plan for the current week. Usually invoked after `/weekly-minutes`.
+Updates the sprint planning document with a compressed summary of the previous week and a detailed plan for the current week.
+
+**Portable**: adapts to any project via `.claude/context/` files. If context files are absent, falls back to CLAUDE.md ambient context and defaults to `workflow_type = "team"`.
 
 ## Arguments
 
-`$ARGUMENTS`: sprint and week (e.g., `sprint-4 week-3`) + optional additional context
+`$ARGUMENTS`: week identifier (e.g., `week-17`, `sprint-4 week-3`) + optional additional context
 
 ## Step 0: Verify current date
 
@@ -18,13 +21,23 @@ Run `date` and record the result. Use this date for **all timestamps** in the do
 
 ## Step 1: Load Project Context
 
-Read these files:
+Read these files if they exist:
 
 1. **`.claude/context/team.md`** — roster, work areas
-2. **`.claude/context/meeting-config.md`** — output paths, repos, work areas, decision numbering
+2. **`.claude/context/meeting-config.md`** — output paths, workflow type, work areas
+3. **`.claude/skills/weekly-planning/references/workflow-override.md`** — project-specific step overrides (if exists)
+
+**Fallback**: if context files don't exist, read CLAUDE.md for ambient project config — look for `## Sprint Planning`, `## Workflow`, or `## Meeting Config` sections. Assume `workflow_type = "team"`.
+
+Extract from `meeting-config.md` when present:
+- `workflow_type` — `"team"` (default) or `"research"`
+- Sprint planning path / output doc path
+- Results report path (for research projects)
+- Work areas list (for table structure in Step 5)
 
 ## Step 2: Gather Sources (in parallel)
 
+**If `workflow_type = "team"`:**
 1. **All dailies from previous week** — extract per-member progress, blockers, action items
 2. **Most recent weekly ata** — extract "O que manter", "O que revisar", decisions
 3. **Sprint planning doc** — current state (path from `meeting-config.md`)
@@ -32,6 +45,14 @@ Read these files:
 5. **Recent comments on key issues** — for context on decisions
 6. **Most recent follow-up** — for client-facing commitments
 7. **Relevant sprint issues** — for scope tracking
+
+**If `workflow_type = "research"`:**
+1. **Previous week's experiments-results.md** — extract completed items, open questions, status table
+2. **Open-questions doc from previous week** — extract priority matrix and pending items
+3. **Audit docs already created this week** — extract completed work
+4. **Open/recently closed issues** — `gh issue list --state all --limit 50`
+5. **Submission roadmap doc** — extract current week's expected deliverables
+6. **Previous week's execution plan** — for migrated items and risks
 
 ## Step 3: Build Resolution Map
 
@@ -79,6 +100,8 @@ Structure with tables per work area (from `meeting-config.md`):
 ```
 
 Mark aspirational items as "stretch goal".
+
+**Research projects** (`workflow_type = "research"`): create a **new** `execution-plan.md` at the week's path (e.g., `plans/sprints/week-NN/execution-plan.md`) — each week is a standalone doc. Include a mermaid Gantt chart for the week's distribution. Team projects update an existing planning doc in-place.
 
 ## Step 6: Update Standing Sections
 
