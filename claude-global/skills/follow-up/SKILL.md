@@ -30,11 +30,14 @@ If project-specific references don't exist, use the universal rules below.
 
 Read in parallel:
 - Daily minutes from the week (all available)
-- Previous follow-up document (for decision numbering continuity)
+- Previous follow-up document (for decision numbering continuity **and** to identify what is already known to the stakeholder — do not repeat achievements already featured there)
 - Sprint overview / planning doc
 - Git activity (`git log --oneline --since="1 week ago"`)
-- Relevant issue comments
 - Architecture/reference docs if needed
+
+For every issue referenced in the daily minutes, check:
+- **State** (`gh issue view N --json state`) — closed issues are completed, not pending
+- **Last comment** — may reveal implementation status not yet in the ata (e.g., "done, waiting for review")
 
 ## Step 2: Ask User for Additional Context
 
@@ -57,12 +60,14 @@ Read in parallel:
 
 **REMOVE**:
 - Individual names (transform to team/area references)
+- Internal team dynamics: vacations, coverage arrangements, dev availability — never in client-facing slides
 - Meta-commentary about process
 - Internal learnings / retrospective insights
 - Code-level technical details (SQL queries, configs)
 - GitHub metrics (PRs, commits)
 - Internal TODOs
 - Story points / estimation details
+- Achievements already featured in the previous follow-up — not news to the stakeholder
 
 **TRANSFORM**:
 - Per-person updates → team themes by area
