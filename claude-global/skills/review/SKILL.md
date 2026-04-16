@@ -95,6 +95,17 @@ Use cross-PR reviews to:
 - Read the linked GitHub issue body
 - Compare issue AC vs spec subtask AC — divergences are process failures, not dev failures
 
+**Convention revision histories (read before reviewing):**
+
+```bash
+# Read the Revision History section of each relevant convention doc
+git show origin/develop:docs/DOMAIN_CONVENTIONS.md | grep -A 20 "## Revision History"
+git show origin/develop:docs/APPLICATION_CONVENTIONS.md | grep -A 20 "## Revision History"
+git show origin/develop:docs/ARCH_CONVENTIONS.md | grep -A 20 "## Revision History"
+```
+
+Revision histories record aged-out rules, when they changed, and why. Reading them prevents filing a finding that is already a known convention debt — and surfaces which open PRs may carry the same risk.
+
 **Depth calibration is mandatory on first reviews.** Read at least one recent report in full before writing anything. If recent reports have Root Cause Analysis timelines, dual spec compliance tables, and bot verification — yours must too.
 
 ---
@@ -641,12 +652,41 @@ If any box is unchecked, fill the section before saving — even a one-liner is 
 
 ---
 
+### Step 4.8 — Convention Archaeology
+
+Run this step after finalizing findings, before writing Convention Updates. It catches a class of problem that per-finding analysis misses: a convention that was correct when written but has aged out as new types arrived.
+
+**Trigger questions** (answer each in one sentence; skip if clearly N/A):
+
+1. **Overgeneralization**: Was the convention written for a narrow set of types (e.g., domain events, early entities) and then applied uniformly to new types that have different semantics?
+2. **Silent divergence**: Has the codebase already drifted away from this convention in files not touched by this PR? (Check with `grep -rn "@dataclass\b\|class.*:" backend/domain/`)
+3. **Downstream risk**: Which open PRs introduce new types that the same aged convention would apply to incorrectly?
+4. **Root cause chain**: Is the finding you filed a symptom of a wrong convention rather than a developer error?
+
+**Process:**
+
+```bash
+# Check for divergence — example: frozen convention
+grep -rn "@dataclass" backend/domain/ --include="*.py" | grep -v ".venv\|__pycache__"
+
+# Check open PRs for types that might be affected
+gh pr list --state open --json number,title,headRefName
+```
+
+If you find a convention that has aged out:
+1. Update the relevant `docs/*_CONVENTIONS.md` on develop with the corrected rule and a Revision History entry (this IS the durable cross-session record — future sessions read revision histories in Step 1.5)
+2. Re-classify affected findings as **pre-existing** (convention was wrong) rather than **dev-owned**
+3. Note affected open PRs in the Convention Updates table and in the attack plan if one exists
+
+---
+
 ### Step 5 — Update Conventions
 
 If any finding reveals a new pattern or an existing convention was violated:
 - Violated existing convention: note it in the Convention Updates table
 - New pattern not yet codified: add to the relevant `docs/*_CONVENTIONS.md` on develop
 - Convention was wrong/incomplete (caused a review-induced finding): update it, note in Finding Provenance
+- Run Step 4.8 to check whether the violation is a symptom of an aged-out rule, not a one-off dev error
 
 ---
 
