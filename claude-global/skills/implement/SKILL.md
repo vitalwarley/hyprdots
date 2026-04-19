@@ -46,6 +46,7 @@ Implements a new metric, pipeline script, or exploratory analysis with the audit
    - Embedding integrity (best checkpoints, correct extraction)
    - Data prerequisites (sample counts, label purity, deduplication)
    - Mathematical/statistical assumptions (distribution, independence, dimensionality)
+   - **Upstream config compatibility** — when the analysis requires new training runs, verify the config is internally consistent *before* deploying. Common failure mode: copying a related config (e.g., same loss/aug params) but missing a dependency (e.g., custom samplers require a specific dataset class for auxiliary attributes). Check that the training config's dataset, sampler, loss, and any model-specific requirements are mutually compatible by reading the relevant class `__init__` and the sampler's attribute accesses — not just by analogy to a sibling config.
 2. Verify each assumption against current artifacts:
    - Check `results/embedding_analysis/` for embedding metadata
    - Cross-reference with `report/methodological-preconditions-audit.md` for known gaps
@@ -235,3 +236,8 @@ If the analysis resolves an open item in `report/methodological-preconditions-au
 5. **Claim type matches analysis type**: rigorous metrics get rigorous claims; exploratory analyses get soft-claims with explicit caveats — do not overstate exploratory findings
 6. **Single commit**: code + results + audit doc ship together — no partial states
 7. **Inherit `/audit` principles**: all 13 design principles from `/audit` apply to the audit doc produced here
+8. **Cross-wave comparisons use relational, not absolute, checks**: when an audit compares a metric to a prior wave under a different infrastructural regime (sampler on/off, optimizer change, dataset update), a common-cause shift can lift or drop both arms uniformly. Absolute-value tolerance (e.g., "AUC within 0.005 of prior wave") will misfire. Prefer:
+   - **Δ(h−z)** or other within-space gaps (structural-cap signatures survive level shifts)
+   - **DiD and within-wave baselines** (`metric_waveN − anchor_waveN` vs `metric_waveM − anchor_waveM`)
+   - **Ratios** when scale, not level, is the invariant
+   The classifier function encodes within-wave defaults — when the auto-label disagrees with the relational reading, state this explicitly in Known Limitations ("classifier label ≠ narrative verdict") and pin the narrative to the relational evidence.
