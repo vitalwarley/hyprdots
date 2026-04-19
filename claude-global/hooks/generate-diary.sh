@@ -207,7 +207,7 @@ fi
 
 # --- Generate diary ---
 (cd /tmp && echo "$DIARY_PROMPT" | claude \
-    --model claude-haiku-4-6 --max-turns 5 --permission-mode bypassPermissions \
+    --model claude-haiku-4-5 --max-turns 5 --permission-mode bypassPermissions \
     --allowedTools Write \
     -p) 2>&1
 
