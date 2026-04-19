@@ -307,8 +307,10 @@ MEMHEADER
     sed -i -e :a -e '/^[[:space:]]*$/{$d;N;ba' -e '}' "$PROJ_MEMORY"
 
     # Count existing entries to determine next number
-    ENTRY_NUM=$(grep -c '^[0-9]\+\.' "$PROJ_MEMORY" 2>/dev/null || echo 0)
-    ENTRY_NUM=$((ENTRY_NUM + 1))
+    # grep -c emits "0" on stdout when no matches (exit 1); don't use `|| echo 0`
+    # — that would append a second "0" and break arithmetic.
+    ENTRY_NUM=$(grep -c '^[0-9]\+\.' "$PROJ_MEMORY" 2>/dev/null)
+    ENTRY_NUM=$(( ${ENTRY_NUM:-0} + 1 ))
 
     echo "" >> "$PROJ_MEMORY"
     echo "${ENTRY_NUM}. \`${DIARY_RELPATH}\`" >> "$PROJ_MEMORY"
