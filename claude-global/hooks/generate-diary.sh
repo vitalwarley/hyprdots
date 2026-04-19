@@ -32,7 +32,7 @@ if [[ ! -f "$TRANSCRIPT_PATH" ]]; then
     exit 1
 fi
 
-TODAY=$(date '+%Y-%m-%d')
+TODAY="${DIARY_DATE:-$(date '+%Y-%m-%d')}"
 
 # Route vault sessions to vault-visible export directory
 if [[ "$CWD" == "$HOME/life/notes"* ]]; then
