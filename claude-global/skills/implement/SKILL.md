@@ -47,6 +47,7 @@ Implements a new metric, pipeline script, or exploratory analysis with the audit
    - Data prerequisites (sample counts, label purity, deduplication)
    - Mathematical/statistical assumptions (distribution, independence, dimensionality)
    - **Upstream config compatibility** — when the analysis requires new training runs, verify the config is internally consistent *before* deploying. Common failure mode: copying a related config (e.g., same loss/aug params) but missing a dependency (e.g., custom samplers require a specific dataset class for auxiliary attributes). Check that the training config's dataset, sampler, loss, and any model-specific requirements are mutually compatible by reading the relevant class `__init__` and the sampler's attribute accesses — not just by analogy to a sibling config.
+   - **Cost estimation for multi-run deploys** — when the analysis requires multiple training runs (e.g., a sweep or factorial), decompose the cost explicitly: `N_runs × per_run_wall_time × $/h`, and state whether the total is **wall-time cost (parallel)** or **cumulative cost (sequential)**. For parallel deploys, `wall_time = max(per_run_wall_time)` not `sum(...)`. Quote the number you're confident in; inflated estimates shape design decisions (e.g., "6 runs too expensive — run 3") before the user has a chance to correct them.
 2. Verify each assumption against current artifacts:
    - Check `results/embedding_analysis/` for embedding metadata
    - Cross-reference with `report/methodological-preconditions-audit.md` for known gaps
