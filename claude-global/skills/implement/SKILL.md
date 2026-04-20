@@ -242,3 +242,7 @@ If the analysis resolves an open item in `report/methodological-preconditions-au
    - **DiD and within-wave baselines** (`metric_waveN − anchor_waveN` vs `metric_waveM − anchor_waveM`)
    - **Ratios** when scale, not level, is the invariant
    The classifier function encodes within-wave defaults — when the auto-label disagrees with the relational reading, state this explicitly in Known Limitations ("classifier label ≠ narrative verdict") and pin the narrative to the relational evidence.
+9. **Sign-awareness in magnitude-based classifiers**: classifiers that compare magnitudes of signed quantities (|Δ|, abs(X), "grows/shrinks" checks over a DiD or effect) must also emit the sign. `|Δ| grows as z shrinks` describes two opposite phenomena when Δ can be positive or negative — "aug helps more at small z" vs "aug hurts more at small z" collapse into the same magnitude label. Fixes:
+   - Split directional branches into sign-specific sub-labels (`3a`: effect grows positive; `3b`: effect grows negative), OR
+   - Have the classifier return `{label, sign, magnitude}` so narrative consumers and `/report` aggregation can filter by sign without re-reading the audit doc's Known Limitations.
+   Principle #8's "classifier label ≠ narrative verdict" escape hatch works for human readers of the audit doc, but the JSON `classification.outcome` field is not self-contained without sign. Apply whenever the classifier condition uses `abs()`, `|X|`, or directional words over a quantity whose sign carries hypothesis interpretation.
