@@ -90,6 +90,20 @@ Use cross-PR reviews to:
 - Calibrate depth — match the analysis level of recent reports
 - Avoid contradicting decisions made in concurrent reviews
 
+**Sibling-PR finding carryover (mandatory when a finding mirrors a sibling review):**
+
+When you file a finding that is "the same issue as PR #N's NX" (shared file, shared code, or shared design pattern), check whether that sibling PR's review already created a tracking issue for it:
+
+```bash
+# Search by keywords from the sibling finding's title
+gh issue list --state all --search "<keyword from finding>" --limit 10 --json number,title,state
+
+# Fallback: list recent issues and scan
+gh issue list --state all --limit 30 --json number,title,state
+```
+
+If a tracking issue exists, reference it in the Fix Guide / follow-up section by number (e.g., "tracked in #81") instead of proposing to open a new one. Opening a duplicate issue is a process failure: it fragments the conversation and the dev gets two notifications for one concern.
+
 **Spec/issue alignment (mandatory):**
 - Find task-specific spec on the base branch: `git show origin/develop:docs/tasks/task-NNN-*.md`
 - Read the linked GitHub issue body
