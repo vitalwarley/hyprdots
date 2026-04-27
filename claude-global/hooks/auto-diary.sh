@@ -11,6 +11,14 @@ if [[ "$STOP_ACTIVE" == "true" ]]; then
     exit 0
 fi
 
+# Opportunistic cleanup of leaked artifacts from prior failed runs.
+# - Empty /tmp/diary-*.md tempfiles older than 1h: created by generate-diary.sh mktemp,
+#   left behind when Haiku failed to call Write (rate limit, role confusion, etc).
+# - Orphaned scratchpad meta files older than 1d: meta files for sessions whose timer
+#   never fired (service exited, machine off at fire time).
+find /tmp -maxdepth 1 -name 'diary-*.md' -empty -mmin +60 -delete 2>/dev/null
+find "$HOME/.claude/memory/scratchpad" -maxdepth 1 -name '*-meta.json' -mtime +1 -delete 2>/dev/null
+
 SESSION_ID=$(echo "$INPUT" | jq -r '.session_id')
 TRANSCRIPT_PATH=$(echo "$INPUT" | jq -r '.transcript_path')
 CWD=$(echo "$INPUT" | jq -r '.cwd')
