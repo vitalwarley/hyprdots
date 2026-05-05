@@ -5,43 +5,39 @@
 
 HYDE_SCRIPT="${HOME}/.local/lib/hyde/brightnesscontrol.sh"
 BRIGHTNESS_VCP=10
+DISPLAYS_CACHE="${XDG_RUNTIME_DIR:-/tmp}/ddcutil-displays"
+DISPLAYS_CACHE_TTL=3600
+LOCK_FILE="${XDG_RUNTIME_DIR:-/tmp}/ddcutil-brightness.lock"
 
 # Get step value (default 5)
 step=${BRIGHTNESS_STEPS:-5}
 step="${2:-$step}"
 
-# Adjust external monitors using ddcutil (runs in background to avoid delay)
+# Cache ddcutil detect output — the i2c probe is slow (~1s) and runs every keypress otherwise
+get_displays() {
+    if [[ -f "$DISPLAYS_CACHE" ]] && (( $(date +%s) - $(stat -c %Y "$DISPLAYS_CACHE") < DISPLAYS_CACHE_TTL )); then
+        cat "$DISPLAYS_CACHE"
+        return
+    fi
+    ddcutil detect 2>/dev/null | grep -oP '(?<=Display )\d+' | tee "$DISPLAYS_CACHE"
+}
+
+# Adjust external monitors using ddcutil's relative setvcp; serialize with flock so
+# rapid keybinding auto-repeat queues instead of racing on read-modify-write.
 adjust_external_monitors() {
     local action="$1"
     local step="$2"
+    local sign="-"
+    [[ "$action" == "i" ]] && sign="+"
 
-    # Check if ddcutil is available
     command -v ddcutil >/dev/null 2>&1 || return
 
-    # Get list of display numbers that support DDC/CI
-    local displays
-    displays=$(ddcutil detect 2>/dev/null | grep -oP '(?<=Display )\d+')
-
-    for display in $displays; do
-        (
-            # Get current brightness
-            local current
-            current=$(ddcutil getvcp $BRIGHTNESS_VCP --display "$display" 2>/dev/null | grep -oP 'current value =\s*\K\d+')
-
-            [[ -z "$current" ]] && exit
-
-            local new_value
-            if [[ "$action" == "i" ]]; then
-                new_value=$((current + step))
-                ((new_value > 100)) && new_value=100
-            else
-                new_value=$((current - step))
-                ((new_value < 0)) && new_value=0
-            fi
-
-            ddcutil setvcp $BRIGHTNESS_VCP "$new_value" --display "$display" 2>/dev/null
-        ) &
-    done
+    (
+        flock -x 9
+        for display in $(get_displays); do
+            ddcutil setvcp $BRIGHTNESS_VCP "$sign" "$step" --display "$display" --noverify 2>/dev/null
+        done
+    ) 9>"$LOCK_FILE" &
 }
 
 case $1 in
