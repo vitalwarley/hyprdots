@@ -737,6 +737,7 @@ When the user says the PR is approved, execute the full sequence without re-conf
 4. Post the R2+ comment (`gh pr comment`) with R2 summary
 5. Post the Step 8 closing comment (teaching + próximos passos)
 6. Merge the PR (`gh pr merge <N> --merge`) — unless user says otherwise
+7. Run **Step 9** — update PR review queue/log on develop so the post-merge state is durable
 
 ---
 
@@ -788,6 +789,48 @@ When the PR is ready to merge — either because it was clean on first review or
 
 ---
 
+### Step 9 — Post-Merge Queue/Log Update
+
+Run this **immediately after** `gh pr merge` succeeds. Skipping it leaves the queue showing the PR as "ready for review" or "blocked"; future sessions read the queue first and waste time re-deriving the merged state from `gh pr list`.
+
+#### When this step applies
+
+Only when the project tracks a PR review queue and/or log on develop. Detect via:
+
+```bash
+git ls-tree -r origin/develop --name-only | grep -E "docs/plans/(pr-review-queue|pr-review-log|attack-plan)"
+```
+
+If no queue/log file exists, skip Step 9 — but still mention in the closing chat summary that a queue update was N/A.
+
+#### Execution order
+
+1. `git checkout develop && git pull --ff-only`
+2. **Queue file** (e.g., `docs/plans/pr-review-queue.md`): remove the merged PR from "Next Up" if listed; update the dependency graph node/label to reflect MERGED status; lift any "Blocked / Paused" entries whose blocker was this PR.
+3. **Log file** (e.g., `docs/plans/pr-review-log.md`): mark the PR as `✅ MERGED YYYY-MM-DD (\`<merge-commit-sha>\`)` with the round at which it merged and a one-line closing summary; add a row to the "Convention Deltas" table for any convention/spec/ADR change committed during this review round; update the "Files by PR" risk table if the merged work changes the picture.
+4. Commit on develop with a semantic message (`docs(plan): PR #<N> merged at R<round>`) and push.
+5. Switch back to wherever you were (typically the merged PR's now-archived branch is fine to leave; it's already merged).
+
+#### What to capture
+
+| Item | Where | Why |
+|------|-------|-----|
+| Merge commit SHA | log row + queue node | enables `git show` lookup later |
+| Round at merge (R1, R2, R3) | log row | tracks how many rounds the PR took |
+| Reviewer-applied vs dev fixes | log row's resolution column | distinguishes process load from dev output |
+| Closing comment URL | log row (optional) | quick link back to teaching content |
+| Downstream PRs newly unblocked | queue's "Next Up" + dependency graph | tells next session what's reviewable now |
+| Convention deltas committed | log's "Convention Deltas" table | durable cross-session record |
+| Follow-up issues opened | log's "Follow-up Issues" section | so they don't slip |
+
+#### Anti-patterns
+
+- Don't try to make this commit on the PR branch — the PR branch is already merged; the queue/log lives on develop.
+- Don't batch multiple PR merges into one queue update — one merge → one queue commit, so the audit trail aligns 1:1 with merge events.
+- Don't update the queue without also lifting downstream blocks — the whole point is that the next session sees the unblock immediately.
+
+---
+
 ## Review Termination Rules
 
 | Round | Critical | Warnings | Suggestions |
@@ -818,3 +861,4 @@ A PR is **ready to merge** when: no critical findings, no warnings from the curr
 - Don't skip the pre-save section checklist (Step 4.9) — missing sections are the single most common review failure
 - Don't file a Critical runtime finding without a reproducible `uv run python -c "..."` that demonstrates it — reading and believing is not evidence
 - Don't verify a single line in isolation when the line has an explanatory comment — verify the full call chain the comment describes; a comment contradicting the implementation is itself a finding
+- Don't stop at `gh pr merge` — Step 9 (queue/log update on develop) is the durable record; skipping it leaves the next session re-deriving merged state from `gh pr list`
