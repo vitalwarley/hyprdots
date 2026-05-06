@@ -52,6 +52,7 @@
 - when creating PRs from feature branches, explicitly verify and pass `--base` to avoid targeting wrong branch
 - GitHub user-attachment images require authentication — use `gh api <url>` to download them, not `curl` or `WebFetch` (both get 404)
 - edit PR review body: `gh api repos/{owner}/{repo}/pulls/{pr}/reviews/{review_id} --method PUT --field body="..."`
+- stacked PRs + `gh pr merge --delete-branch` cascade-CLOSES (not rebases) every child PR whose base was the deleted branch. Closed PRs in this state cannot be reopened (`reopenPullRequest` errors when base branch is gone) nor have their base changed. **Before merging a parent with `--delete-branch`, retarget every child's base to the eventual ancestor (usually `main`) via `gh pr edit <child> --base main`.** Or merge without `--delete-branch` and clean branches manually after the whole stack lands. Recovery if it happens: re-create the closed PR from the same head branch with `gh pr create --base main` (preserves the work; original PR stays closed with cross-link comment).
 
 ## Diagnostic Protocol
 - when a bug involves data shape mismatch (wrong fields, missing keys, unexpected structure): trace the data from origin through persistence to consumption BEFORE proposing any fix — the fix should address why the shapes diverge, not just which property to read
