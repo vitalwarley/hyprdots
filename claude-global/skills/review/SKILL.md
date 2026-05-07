@@ -756,7 +756,7 @@ When a review surfaces a tracking item — pre-existing bug not in scope, deferr
 Mandatory steps:
 1. `ls .github/ISSUE_TEMPLATE/` — find the relevant template (`issue.md`, `bug.md`, etc.)
 2. Read the template; mirror its sections in your body
-3. Use the template's title format. For follow-up issues from a review, an "[ISS-FOLLOWUP-N]" naming (where N is the issue number once known) keeps them distinguishable from sprint-planned tasks
+3. **Title prefix**: do not invent ID schemes. Inspect existing issues with `gh issue list --limit 30 --json number,title` and copy the format you see used in practice. If the project uses an external tracker (Linear, Jira) that assigns codes like `[ISS-007a]`, `[ISS-010b]`, those codes come from outside GitHub — the reviewer cannot synthesize them. For follow-up issues with no clear external code, leave the title prefix-less (the issue's GitHub number + label provide enough classification) and let the user add a code later. Do not pattern-match (e.g., one issue named `[ISS-009c-followup]` is not a license to invent `[ISS-FOLLOWUP-N]` for unrelated bugs)
 4. Write the body to a file (`/tmp/issue-body.md`) and pass it via `--body-file`, never via `--body "$(cat <<EOF ... EOF)"` — the heredoc path escapes backticks and breaks code fences in the rendered issue
 5. Verify with `gh issue view <N>` after creation; if formatting is broken, fix immediately with `gh issue edit <N> --body-file <fixed>`
 
