@@ -728,6 +728,27 @@ If any finding reveals a new pattern or an existing convention was violated:
 
 When user asks reviewer to apply fixes directly: one commit per fix, semantic message, update report with commit hash.
 
+**Boundary: reviewer-induced vs dev-owned**
+
+The praxis principle: **reviewer fixes what reviewer/process induced; dev fixes what dev introduced.** Reviewer-induced findings are those whose root cause is one of:
+- A prior-round fix guide (R(N-1) finding inverted by convention amendment, or guide was wrong/imprecise)
+- A spec/convention contradiction on develop that was never reconciled
+- An R(N-1) reviewer miss (e.g., spec rule not checked, mechanical gate not run)
+- A pre-existing pattern the reviewer didn't surface earlier
+
+Dev-owned findings are bugs the dev introduced in their own commits that aren't downstream of reviewer/process gaps.
+
+**Do not unilaterally bundle dev-owned fixes into a reviewer-applied commit, even when the file is already being touched.** The "while I'm here" rationalization deprives the dev of the learning loop they signed up for. Three-line dev fixes are still dev fixes.
+
+**Entanglement rule (mandatory)**: when applying a reviewer-induced fix would touch the same file or same diff hunks as a dev-owned finding, **stop and ask the user before bundling**. Surface:
+1. The reviewer-induced fix you're about to apply
+2. The dev-owned finding that's entangled (same file? structural dependency? a deletion that becomes mandatory once the port moves?)
+3. Three options for the user to pick: (a) bundle both (you take responsibility for the dev fix), (b) apply reviewer fix only and leave the dev fix for R(N+1), (c) hybrid (e.g., structural side reviewer-applied because forced; semantic side left for dev)
+
+A genuinely structural consequence (e.g., adapter must shed methods after a port move because the canonical port has fewer) can be reviewer-applied without asking — but only the structural side. The semantic counterpart (e.g., the port itself diverging from spec) is still dev work unless the user agrees to bundle.
+
+**If the boundary slips anyway**: do not silently keep it. Add a "Reviewer Boundary Note" subsection under Process Feedback in the report, mark the affected findings with ⚠️ in the Finding Attribution table, and explain why reverting would create churn (or do revert if reverting is cheap). Transparency over tidiness.
+
 #### On approval ("PR approved" or equivalent)
 
 When the user says the PR is approved, execute the full sequence without re-confirmation:
@@ -862,3 +883,4 @@ A PR is **ready to merge** when: no critical findings, no warnings from the curr
 - Don't file a Critical runtime finding without a reproducible `uv run python -c "..."` that demonstrates it — reading and believing is not evidence
 - Don't verify a single line in isolation when the line has an explanatory comment — verify the full call chain the comment describes; a comment contradicting the implementation is itself a finding
 - Don't stop at `gh pr merge` — Step 9 (queue/log update on develop) is the durable record; skipping it leaves the next session re-deriving merged state from `gh pr list`
+- Don't bundle dev-owned fixes into a reviewer-applied commit just because the file is already being touched — "while I'm here" deprives the dev of the learning loop. When reviewer-induced and dev-owned findings are entangled (same file, same hunks, structural dependency), stop and ask the user before bundling. Three-line dev fixes are still dev fixes. See Step 6 "Boundary: reviewer-induced vs dev-owned"
