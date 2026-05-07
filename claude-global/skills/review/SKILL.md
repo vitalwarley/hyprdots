@@ -749,6 +749,17 @@ A genuinely structural consequence (e.g., adapter must shed methods after a port
 
 **If the boundary slips anyway**: do not silently keep it. Add a "Reviewer Boundary Note" subsection under Process Feedback in the report, mark the affected findings with ⚠️ in the Finding Attribution table, and explain why reverting would create churn (or do revert if reverting is cheap). Transparency over tidiness.
 
+#### Opening follow-up issues
+
+When a review surfaces a tracking item — pre-existing bug not in scope, deferred suggestion, cross-PR debt — **always check the project's issue template before running `gh issue create`**. Default `gh` opens a free-form body; the team's template has specific sections (Contexto / Problema / Solução Proposta / Critérios de Aceitação / Story Points / etc.) and a title format (e.g., `[ISS-NNN]` or `[ISS-FOLLOWUP-NNN]`). Mismatched issues fragment from the rest of the backlog.
+
+Mandatory steps:
+1. `ls .github/ISSUE_TEMPLATE/` — find the relevant template (`issue.md`, `bug.md`, etc.)
+2. Read the template; mirror its sections in your body
+3. Use the template's title format. For follow-up issues from a review, an "[ISS-FOLLOWUP-N]" naming (where N is the issue number once known) keeps them distinguishable from sprint-planned tasks
+4. Write the body to a file (`/tmp/issue-body.md`) and pass it via `--body-file`, never via `--body "$(cat <<EOF ... EOF)"` — the heredoc path escapes backticks and breaks code fences in the rendered issue
+5. Verify with `gh issue view <N>` after creation; if formatting is broken, fix immediately with `gh issue edit <N> --body-file <fixed>`
+
 #### On approval ("PR approved" or equivalent)
 
 When the user says the PR is approved, execute the full sequence without re-confirmation:
@@ -884,3 +895,4 @@ A PR is **ready to merge** when: no critical findings, no warnings from the curr
 - Don't verify a single line in isolation when the line has an explanatory comment — verify the full call chain the comment describes; a comment contradicting the implementation is itself a finding
 - Don't stop at `gh pr merge` — Step 9 (queue/log update on develop) is the durable record; skipping it leaves the next session re-deriving merged state from `gh pr list`
 - Don't bundle dev-owned fixes into a reviewer-applied commit just because the file is already being touched — "while I'm here" deprives the dev of the learning loop. When reviewer-induced and dev-owned findings are entangled (same file, same hunks, structural dependency), stop and ask the user before bundling. Three-line dev fixes are still dev fixes. See Step 6 "Boundary: reviewer-induced vs dev-owned"
+- Don't open follow-up issues without checking `.github/ISSUE_TEMPLATE/` first — projects have title formats (`[ISS-NNN]` etc.) and required sections (Contexto / Problema / Solução / AC / Story Points). Always pass the body via `--body-file <path>`, never via heredoc to `--body` (heredoc escapes backticks and breaks code fences). Verify with `gh issue view <N>` after creation. See Step 6 "Opening follow-up issues"
