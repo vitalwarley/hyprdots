@@ -88,8 +88,6 @@ key unblocks or new blockers. 1–3 sentences. Do NOT summarize what each person
 
 #### Dashboard (tdb-version-dashboard)
 
-**Contexto**: [1 line — what moved since last daily]
-
 | ID | Item | Ref | [prev date] | [today date] | Próxima ação |
 |----|------|-----|-------------|--------------|--------------|
 | DXX | ... | #N | 🟡 | 🟡/🟢/🔴/⚪/🆕 | ... |
@@ -105,6 +103,19 @@ Do NOT list closed issues here.]
 | ID | Item | Ref | [prev date] | [today date] | Próxima ação |
 |----|------|-----|-------------|--------------|--------------|
 ```
+
+## Step 3A: Tracker Carryover Rules
+
+When deciding which follow-ups to bring into today's tables:
+
+- **🟢 in the previous daily?** → Drop. Green resolves once and does not propagate to the next daily; past atas hold the history.
+- **Already addressed in the most recent follow-up document?** → Drop (the follow-up is the closure record for stakeholders); reconciliation should be done by the follow-up skill, not duplicated here.
+- **Issue closed since last daily?** → Drop the row; do not include "issue closed" as a status update.
+- **Out-of-scope items** (different program/cycle, not relevant to current sprint) → Drop, regardless of last status.
+- **Validated by PO since last daily?** → Mark 🟢 in today's column with the validation note; will not carry forward.
+- **New decisions cravadas hoje** → Mark 🟢 only when fully decided + actionable; otherwise 🟡.
+
+The carryover table answers **"what is still open or moved today?"** — never **"what was the full history?"**.
 
 ## Step 4: Save
 
