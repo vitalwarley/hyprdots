@@ -1,0 +1,9 @@
+{
+  "custom/claude": {
+    "exec": "/home/warley/life/2-areas/dev-tools/hyprdots/waybar/scripts/claude-usage.sh",
+    "return-type": "json",
+    "interval": 30,
+    "tooltip": true,
+    "max-length": 20
+  }
+}

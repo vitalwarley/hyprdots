@@ -1,1 +1,11 @@
 /* User custom styles */
+
+/* Claude Code Max5x quota pill — thresholds set in claude-usage.sh */
+#custom-claude.warning {
+    color: #f5a623;
+}
+
+#custom-claude.critical {
+    color: #ff4d4f;
+    font-weight: bold;
+}
