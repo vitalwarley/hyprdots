@@ -81,14 +81,19 @@ class JournalDoc:
     sinais_text: str
 
 
-def escape_obsidian_html(text: str) -> str:
-    """Backslash-escape `<` and `>` outside backtick spans.
+TAG_RE = re.compile(r"<[a-zA-Z][^<>]*>")
 
-    Obsidian parses bare `<token>` sequences as HTML and hides them in
-    Live Preview / Reading view. Markdown backslash-escape (`\\<`, `\\>`)
-    renders as literal `<` and `>` while preventing the HTML branch.
-    Content inside backticks is already protected by code-span semantics
-    and is left untouched (escaping would render the backslashes verbatim).
+
+def wrap_html_tags_in_code(text: str) -> str:
+    """Wrap `<token>` patterns in backticks so Obsidian doesn't parse them
+    as HTML and hide them in Live Preview / Reading view.
+
+    Code spans are semantically correct for placeholder tokens like
+    `<session_id>` or `<UUID>` (these are code, not prose), render in
+    monospace consistent with the rest of the journal, and only affect
+    `<word>` patterns — lone `<` characters (e.g. `< 5min`) are left
+    alone since the browser HTML parser ignores unmatched `<`. Tokens
+    already inside backtick spans are skipped.
     """
     out: list[str] = []
     in_code = False
@@ -101,10 +106,13 @@ def escape_obsidian_html(text: str) -> str:
             out.append(text[start:i])
             in_code = not in_code
             continue
-        if not in_code and text[i] in "<>":
-            out.append("\\" + text[i])
-        else:
-            out.append(text[i])
+        if not in_code:
+            m = TAG_RE.match(text, i)
+            if m:
+                out.append("`" + m.group(0) + "`")
+                i = m.end()
+                continue
+        out.append(text[i])
         i += 1
     return "".join(out)
 
@@ -539,13 +547,13 @@ def main() -> None:
     current_sinais = existing.sinais_text if existing else SINAIS_PLACEHOLDER
     response = call_model(metadata, diary_text, request_sinais, current_sinais)
 
-    narrative = escape_obsidian_html((response.get("narrative") or "").strip())
-    bullets = [escape_obsidian_html(b) for b in (response.get("bullets") or [])]
+    narrative = wrap_html_tags_in_code((response.get("narrative") or "").strip())
+    bullets = [wrap_html_tags_in_code(b) for b in (response.get("bullets") or [])]
     tipo = response.get("tipo") or []  # tipo tags are slugs — no HTML risk
-    output = [escape_obsidian_html(o) for o in (response.get("output") or [])]
+    output = [wrap_html_tags_in_code(o) for o in (response.get("output") or [])]
     sinais_update = response.get("sinais") if request_sinais else None
     if sinais_update is not None:
-        sinais_update = escape_obsidian_html(str(sinais_update))
+        sinais_update = wrap_html_tags_in_code(str(sinais_update))
     if not narrative:
         raise SystemExit("model response missing narrative")
 
