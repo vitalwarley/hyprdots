@@ -81,6 +81,34 @@ class JournalDoc:
     sinais_text: str
 
 
+def escape_obsidian_html(text: str) -> str:
+    """Backslash-escape `<` and `>` outside backtick spans.
+
+    Obsidian parses bare `<token>` sequences as HTML and hides them in
+    Live Preview / Reading view. Markdown backslash-escape (`\\<`, `\\>`)
+    renders as literal `<` and `>` while preventing the HTML branch.
+    Content inside backticks is already protected by code-span semantics
+    and is left untouched (escaping would render the backslashes verbatim).
+    """
+    out: list[str] = []
+    in_code = False
+    i, n = 0, len(text)
+    while i < n:
+        if text[i] == "`":
+            start = i
+            while i < n and text[i] == "`":
+                i += 1
+            out.append(text[start:i])
+            in_code = not in_code
+            continue
+        if not in_code and text[i] in "<>":
+            out.append("\\" + text[i])
+        else:
+            out.append(text[i])
+        i += 1
+    return "".join(out)
+
+
 def fmt_duration(minutes: int) -> str:
     if minutes < 60:
         return f"{minutes}min"
@@ -511,11 +539,13 @@ def main() -> None:
     current_sinais = existing.sinais_text if existing else SINAIS_PLACEHOLDER
     response = call_model(metadata, diary_text, request_sinais, current_sinais)
 
-    narrative = (response.get("narrative") or "").strip()
-    bullets = response.get("bullets") or []
-    tipo = response.get("tipo") or []
-    output = response.get("output") or []
+    narrative = escape_obsidian_html((response.get("narrative") or "").strip())
+    bullets = [escape_obsidian_html(b) for b in (response.get("bullets") or [])]
+    tipo = response.get("tipo") or []  # tipo tags are slugs — no HTML risk
+    output = [escape_obsidian_html(o) for o in (response.get("output") or [])]
     sinais_update = response.get("sinais") if request_sinais else None
+    if sinais_update is not None:
+        sinais_update = escape_obsidian_html(str(sinais_update))
     if not narrative:
         raise SystemExit("model response missing narrative")
 
