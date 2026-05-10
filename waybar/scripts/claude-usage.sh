@@ -98,6 +98,29 @@ fmt_tokens_full() {
     awk -v n="${1:-0}" 'BEGIN { n=int(n); s=""; sign=""; if (n<0) {sign="-"; n=-n}; while (n>=1000) { s=sprintf(",%03d%s", n%1000, s); n=int(n/1000) } printf "%s%d%s", sign, n, s }'
 }
 
+fmt_pct_1() { awk -v n="${1:-0}" 'BEGIN { printf "%.1f", n }'; }
+fmt_money_2() { awk -v n="${1:-0}" 'BEGIN { printf "%.2f", n }'; }
+fmt_int() { awk -v n="${1:-0}" 'BEGIN { printf "%d", n }'; }
+# extra_usage amounts come in MINOR UNITS (BRL centavos, USD cents).
+# Returns "X.YYY,ZZ" with comma decimal + period thousands (BR convention).
+fmt_minor_units_br() {
+    awk -v n="${1:-0}" 'BEGIN {
+        v = n / 100.0
+        ipart = int(v)
+        fpart = int((v - ipart) * 100 + 0.5)
+        s = ""
+        sign = ""
+        if (ipart < 0) { sign = "-"; ipart = -ipart }
+        do {
+            chunk = ipart % 1000
+            ipart = int(ipart / 1000)
+            if (ipart > 0) s = sprintf(".%03d%s", chunk, s)
+            else s = sprintf("%d%s", chunk, s)
+        } while (ipart > 0)
+        printf "%s%s,%02d", sign, s, fpart
+    }'
+}
+
 iso_to_epoch() {
     local iso="$1"
     [[ -z "$iso" || "$iso" == "null" ]] && { echo 0; return; }
@@ -297,9 +320,9 @@ if [[ "$MODE" == "--tui" ]]; then
         [[ -n "$SONNET_PCT" ]] && printf '  Sonnet:     %5.1f%%\n' "$SONNET_PCT" || printf '  Sonnet:      —    (no data)\n'
         printf '\n'
         if [[ "$EXTRA_ENABLED" == "true" ]]; then
-            printf 'Extra usage:  %s %s used / %s %s  (%.1f%%)\n\n' \
-                "$EXTRA_CCY" "$(fmt_tokens_full "$EXTRA_USED")" \
-                "$EXTRA_CCY" "$(fmt_tokens_full "$EXTRA_LIMIT")" "$EXTRA_PCT"
+            printf 'Extra usage:  %s %s spent / %s %s  (%.1f%%)\n\n' \
+                "$EXTRA_CCY" "$(fmt_minor_units_br "$EXTRA_USED")" \
+                "$EXTRA_CCY" "$(fmt_minor_units_br "$EXTRA_LIMIT")" "$EXTRA_PCT"
         fi
     else
         printf '5h window:    [%s] %5.1f%%   (legacy ccusage estimate — claude.ai may differ)\n\n' "$bar" "$PCT_FRAC"
@@ -307,7 +330,6 @@ if [[ "$MODE" == "--tui" ]]; then
 
     if (( CC_HAS == 1 )); then
         printf 'Claude Code activity (local — web chats not included):\n'
-        printf '  Since:      %s   (ccusage block start; differs from API 5h window above)\n' "$(fmt_local_hm "$CC_START")"
         printf '  Tokens:     in %s / out %s   (cache excluded)\n' "$(fmt_tokens_full "$CC_INPUT")" "$(fmt_tokens_full "$CC_OUTPUT")"
         printf '  Burn:       %s tok/min\n' "$(fmt_tokens_full "$(printf '%.0f' "$CC_BURN_IND")")"
         printf '  Cost:       $%.2f\n' "$CC_COST"
@@ -325,10 +347,6 @@ fi
 # ---------- Pill output ----------
 
 PILL_TEXT="${PCT_INT}% · ${ETA_STR}"
-
-fmt_pct_1() { awk -v n="${1:-0}" 'BEGIN { printf "%.1f", n }'; }
-fmt_money_2() { awk -v n="${1:-0}" 'BEGIN { printf "%.2f", n }'; }
-fmt_int() { awk -v n="${1:-0}" 'BEGIN { printf "%d", n }'; }
 
 build_tooltip() {
     local resets_5h_hm resets_7d_hm cc_start_hm cc_end_hm cc_burn_int
@@ -357,11 +375,11 @@ build_tooltip() {
     [[ -n "$SONNET_PCT" ]]    && lines+=("  Sonnet: ${sonnet_str}%")
     [[ -n "$OPUS_PCT" ]]      && lines+=("  Opus:   ${opus_str}%")
     if [[ "$EXTRA_ENABLED" == "true" ]]; then
-        lines+=("Extra: ${extra_pct_str}%  ${EXTRA_CCY} ${extra_used_int}/${extra_limit_int}")
+        lines+=("Extra: ${extra_pct_str}%  ${EXTRA_CCY} $(fmt_minor_units_br "$EXTRA_USED")/$(fmt_minor_units_br "$EXTRA_LIMIT")")
     fi
     if (( CC_HAS == 1 )); then
         lines+=("")
-        lines+=("CC local since ${cc_start_hm} (different from API window):")
+        lines+=("Claude Code (local):")
         lines+=("  in:  $(fmt_tokens_short "$CC_INPUT")")
         lines+=("  out: $(fmt_tokens_short "$CC_OUTPUT")")
         lines+=("  burn: $(fmt_tokens_short "$cc_burn_int")/min")
