@@ -336,4 +336,13 @@ MEMHEADER
     echo "    - ${SUMMARY:-No summary available}" >> "$PROJ_MEMORY"
 fi
 
+# --- Update AI day-journal (best-effort, non-blocking) ---
+# See ~/life/notes/areas/claude/ai-journal/ai-journal.md for design.
+# Failure is swallowed so the diary itself is preserved regardless.
+JOURNAL_HOOK="$(dirname "$(readlink -f "$0")")/update-day-journal.sh"
+if [[ -x "$JOURNAL_HOOK" ]]; then
+    bash "$JOURNAL_HOOK" "$DIARY_FILE" "$TRANSCRIPT_PATH" "$CWD" \
+        || logger -t generate-diary "ai-journal upsert failed for session $SESSION_ID"
+fi
+
 rm -f "$META_FILE"
