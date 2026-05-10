@@ -15,6 +15,7 @@
     // positions generated based on config.ctl //
     "modules-left": [
         "group/pill#left1",
+        "group/pill#left-claude",
         "group/pill#left2"
     ],
     "group/pill#left1": {
@@ -23,7 +24,12 @@
             "cpu",
             "memory",
             "custom/cpuinfo",
-            "custom/gpuinfo",
+            "custom/gpuinfo"
+        ]
+    },
+    "group/pill#left-claude": {
+        "orientation": "inherit",
+        "modules": [
             "custom/claude"
         ]
     },
