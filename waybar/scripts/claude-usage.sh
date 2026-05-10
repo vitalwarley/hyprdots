@@ -8,13 +8,12 @@
 # Authoritative source: api.anthropic.com/api/oauth/usage with the OAuth
 # bearer token from ~/.claude/.credentials.json. Returns the SAME numbers
 # claude.ai/usage shows (5h utilization %, 7-day, per-model, extra_usage,
-# resets_at timestamps). Token counts/burn rate from ccusage are kept for
-# tooltip context but are NOT the basis of the pill % anymore (ccusage
-# only sees Claude Code JSONL — claude.ai web chats are invisible to it).
+# resets_at timestamps).
 #
-# Fallback chain: API 200 → use API. API failure (401/500/network) → use
-# ccusage's tokenCounts vs CLAUDE_TOKEN_LIMIT (legacy, may diverge from
-# claude.ai). All-fail → "?" pill.
+# Fallback chain: API 200 → use API. API failure (401/500/network) → fall
+# back to ccusage's tokenCounts vs CLAUDE_TOKEN_LIMIT (legacy estimate;
+# ccusage only sees Claude Code JSONL so it misses claude.ai web chats).
+# All-fail → "?" pill. ccusage is only invoked on the fallback path.
 #
 # Endpoint discovered 2026-05-10 via /tmp/claude-usage-probe.sh. See
 # notes/areas/claude/realtime-usage/scratch/ccusage-shape.md for diagnosis.
@@ -260,11 +259,14 @@ if [[ -f "$USAGE_CACHE" ]]; then
     fi
 fi
 
-CC_JSON=""
+# ccusage is only consulted when the API is unavailable. With the API
+# healthy, skipping the 6-9s `bunx ccusage` call keeps each poll cheap.
 CC_BLOCK=""
-if CC_JSON=$(get_ccusage_active 2>/dev/null); then
-    CC_BLOCK=$(printf '%s' "$CC_JSON" \
-      | jq -c '(.blocks // []) | map(select((.isActive // false) and ((.isGap // false) | not))) | first // empty' 2>/dev/null || true)
+if (( USE_API == 0 )); then
+    if CC_JSON=$(get_ccusage_active 2>/dev/null); then
+        CC_BLOCK=$(printf '%s' "$CC_JSON" \
+          | jq -c '(.blocks // []) | map(select((.isActive // false) and ((.isGap // false) | not))) | first // empty' 2>/dev/null || true)
+    fi
 fi
 
 # Hard-fail: neither source available.
@@ -384,23 +386,9 @@ if (( USE_API == 1 )); then
     fi
 fi
 
-# ---------- ccusage enrichment values (always optional) ----------
-
-if [[ -n "$CC_BLOCK" ]]; then
-    CC_INPUT=$(jq -r '.tokenCounts.inputTokens // 0' <<<"$CC_BLOCK")
-    CC_OUTPUT=$(jq -r '.tokenCounts.outputTokens // 0' <<<"$CC_BLOCK")
-    CC_CACHE_READ=$(jq -r '.tokenCounts.cacheReadInputTokens // 0' <<<"$CC_BLOCK")
-    CC_CACHE_CREATE=$(jq -r '.tokenCounts.cacheCreationInputTokens // 0' <<<"$CC_BLOCK")
-    CC_START=$(jq -r '.startTime // ""' <<<"$CC_BLOCK")
-    CC_END=$(jq -r '.endTime // ""' <<<"$CC_BLOCK")
-    CC_BURN_IND=$(jq -r '.burnRate.tokensPerMinuteForIndicator // 0' <<<"$CC_BLOCK")
-    CC_COST=$(jq -r '.costUSD // 0' <<<"$CC_BLOCK")
-    CC_MODELS=$(jq -r '(.models // []) | join(", ")' <<<"$CC_BLOCK")
-    CC_ENTRIES=$(jq -r '.entries // 0' <<<"$CC_BLOCK")
-    CC_HAS=1
-else
-    CC_HAS=0
-fi
+# ccusage's local view used to be shown as tooltip enrichment, but its 5h
+# block windowing doesn't align with the API's, so the numbers misled
+# more than they helped. Kept only as the fallback PCT source above.
 
 # ---------- TUI output ----------
 
@@ -444,19 +432,7 @@ if [[ "$MODE" == "--tui" ]]; then
         printf '5h window:    [%s] %5.1f%%   (legacy ccusage estimate — claude.ai may differ)\n\n' "$bar" "$PCT_FRAC"
     fi
 
-    if (( CC_HAS == 1 )); then
-        printf 'Claude Code activity (local — web chats not included):\n'
-        printf '  Tokens:     in %s / out %s   (cache excluded)\n' "$(fmt_tokens_full "$CC_INPUT")" "$(fmt_tokens_full "$CC_OUTPUT")"
-        printf '  Burn:       %s tok/min\n' "$(fmt_tokens_full "$(printf '%.0f' "$CC_BURN_IND")")"
-        printf '  Cost:       $%.2f\n' "$CC_COST"
-        printf '  Entries:    %s\n' "$CC_ENTRIES"
-        printf '  Models:     %s\n\n' "${CC_MODELS:-—}"
-        printf '  Cache (info, not counted in quota):\n'
-        printf '    reads:    %s\n'  "$(fmt_tokens_full "$CC_CACHE_READ")"
-        printf '    creation: %s\n\n' "$(fmt_tokens_full "$CC_CACHE_CREATE")"
-    fi
-
-    printf 'Last refresh: %s   (cache TTL: API %ss / ccusage %ss)\n' "$(date +%H:%M:%S)" "$USAGE_CACHE_TTL" "$CCUSAGE_TTL"
+    printf 'Last refresh: %s   (cache TTL: API %ss)\n' "$(date +%H:%M:%S)" "$USAGE_CACHE_TTL"
     exit 0
 fi
 
@@ -484,21 +460,14 @@ fi
 PILL_TEXT="${PILL_ICON}  ${PCT_INT}% · ${ETA_STR}${PILL_SUFFIX}"
 
 build_tooltip() {
-    local resets_5h_hm resets_7d_hm cc_start_hm cc_end_hm cc_burn_int
-    local seven_day_str sonnet_str opus_str extra_pct_str cc_cost_str
-    local extra_used_int extra_limit_int
+    local resets_5h_hm resets_7d_hm
+    local seven_day_str sonnet_str opus_str extra_pct_str
     resets_5h_hm=$(fmt_local_hm "$RESETS_5H")
     resets_7d_hm=$(fmt_local_day_hm "$SEVEN_DAY_RESETS")
-    cc_start_hm=$(fmt_local_hm "$CC_START")
-    cc_end_hm=$(fmt_local_hm "$CC_END")
-    cc_burn_int=$(printf '%.0f' "${CC_BURN_IND:-0}")
     seven_day_str=$(fmt_pct_1 "$SEVEN_DAY_PCT")
     sonnet_str=$(fmt_pct_1 "$SONNET_PCT")
     opus_str=$(fmt_pct_1 "$OPUS_PCT")
     extra_pct_str=$(fmt_pct_1 "$EXTRA_PCT")
-    cc_cost_str=$(fmt_money_2 "${CC_COST:-0}")
-    extra_used_int=$(fmt_int "$EXTRA_USED")
-    extra_limit_int=$(fmt_int "$EXTRA_LIMIT")
 
     local lines=()
     if (( USE_API == 1 )); then
@@ -521,16 +490,6 @@ build_tooltip() {
     [[ -n "$OPUS_PCT" ]]      && lines+=("  Opus:   ${opus_str}%")
     if [[ "$EXTRA_ENABLED" == "true" ]]; then
         lines+=("Extra: ${extra_pct_str}%  ${EXTRA_CCY} $(fmt_minor_units_br "$EXTRA_USED")/$(fmt_minor_units_br "$EXTRA_LIMIT")")
-    fi
-    if (( CC_HAS == 1 )); then
-        lines+=("")
-        lines+=("Claude Code (local):")
-        lines+=("  in:  $(fmt_tokens_short "$CC_INPUT")")
-        lines+=("  out: $(fmt_tokens_short "$CC_OUTPUT")")
-        lines+=("  burn: $(fmt_tokens_short "$cc_burn_int")/min")
-        lines+=("  cost: \$${cc_cost_str}")
-        lines+=("  models: ${CC_MODELS:-—}")
-        lines+=("  cache r:$(fmt_tokens_short "$CC_CACHE_READ") c:$(fmt_tokens_short "$CC_CACHE_CREATE")")
     fi
     lines+=("")
     lines+=("source: ${SOURCE_LABEL}")
