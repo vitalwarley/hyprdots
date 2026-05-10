@@ -67,19 +67,33 @@ Flag any discrepancies between spec assumptions and current codebase. Present co
 
 Group steps into phases based on dependency and domain boundaries.
 
-Each step becomes a table row:
+**Each step is a subsection, NOT a table row.** Tables wrap long description text into narrow columns and become unreadable. Use this structure:
 
 ```markdown
-| Step | Issue | Description | Type | Max Turns |
-|------|-------|-------------|------|-----------|
-| 1a | TBD | **Bold title** — Detailed description referencing spec sections. Specific files, specific behavior. | feature/refactor/fix/test/script/chore | N |
+### Phase N: <name>
+
+#### Step Na — **Bold title**
+
+**Issue:** #N · **Type:** feature/refactor/fix/test/script/chore · **Max Turns:** N
+
+<Detailed description in flowing prose: what gets built/changed, which spec section it implements, specific behavior. Reference files inline with markdown links.>
+
+**Edge cases:**
+- (1) <specific input → expected behavior>
+- (2) <specific input → expected behavior>
+
+**Acceptance criteria:**
+- [ ] <independently verifiable assertion>
+- [ ] <independently verifiable assertion>
+
+**Files:** `path/to/file.ext`, `path/to/other.ext`
 ```
 
 **Step description requirements** (must meet project's autonomous-ready criteria):
 - Concrete behavior (Given/Does/System does), not abstract
 - At least 2 edge cases with specific input→behavior pairs
 - Acceptance criteria as checkboxes (independently verifiable)
-- Specific file paths in "Files Likely Affected"
+- Specific file paths listed at end
 - Single responsibility — one concern per step
 - Reference the relevant spec section with a relative link
 
@@ -88,6 +102,8 @@ Each step becomes a table row:
 - Moderate (modify existing + tests): 15-20
 - Complex (multi-file refactor, cross-cutting): 20-25
 - Large (new surface area + integration): 25-30
+
+**Where tables ARE appropriate**: Scope Corrections (3 short columns), Parallelism Analysis (3 short columns), Conflict Risk Assessment (3 short columns). These have short cell contents and stay readable. Step descriptions do not.
 
 ### 5. Build Order Diagram
 
@@ -213,3 +229,4 @@ If the user prefers a separate file, write to `docs/plans/<name>-attack-plan.md`
 - Don't launch autonomous runs — this command only produces the plan
 - Don't skip the conflict risk assessment — merge conflicts waste more time than an extra wave
 - Don't write vague descriptions ("refactor the thing") — every step needs specific files and behaviors
+- **Don't put step descriptions in table rows** — long prose wrapped in narrow columns is unreadable. Use the subsection format from Section 4.
