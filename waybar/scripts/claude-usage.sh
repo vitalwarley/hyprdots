@@ -37,6 +37,17 @@ STALE_MAX_SECS=3600
 # Lets a 429 cool off; lets a network blip not pin every poll trying.
 RETRY_BACKOFF_SECS=300
 
+# Sliding-window trail of (timestamp, utilization) tuples. Each successful
+# API refresh appends one line. Used to derive a "recent burn rate" that
+# reacts to model switches (e.g., Opus → Sonnet) within a few refreshes,
+# instead of being dragged forever by the cumulative-from-window-start
+# average. TSV: <epoch_secs>\t<utilization_pct>.
+TRAIL_FILE="/tmp/claude-usage-trail.tsv"
+TRAIL_RETAIN_SECS=3600        # drop entries older than this on each append
+TRAIL_WINDOW_SECS=1800        # 30min sliding window for recent-rate calc
+TRAIL_MIN_SPAN_SECS=300       # need at least this much elapsed in-window
+TRAIL_MIN_POINTS=2            # need at least this many points in-window
+
 CCUSAGE_CACHE="/tmp/claude-usage-cache.json"
 CCUSAGE_DAILY_CACHE="/tmp/claude-usage-daily-cache.json"
 CCUSAGE_TTL=30
@@ -213,6 +224,15 @@ try_refresh_api() {
     fi
     printf '%s' "$body" > "$USAGE_CACHE"
     rm -f "$USAGE_FAIL_LOCK"
+    # Trail: append (now, util) and trim to the retain window. Filtering
+    # via awk in-place avoids a separate cron — the file stays bounded.
+    local util_now now_epoch cutoff
+    util_now=$(printf '%s' "$body" | jq -r '.five_hour.utilization // 0' 2>/dev/null || echo 0)
+    now_epoch=$(date +%s)
+    printf '%d\t%s\n' "$now_epoch" "$util_now" >> "$TRAIL_FILE"
+    cutoff=$(( now_epoch - TRAIL_RETAIN_SECS ))
+    awk -v cutoff="$cutoff" '$1 >= cutoff' "$TRAIL_FILE" > "$TRAIL_FILE.tmp" 2>/dev/null \
+        && mv "$TRAIL_FILE.tmp" "$TRAIL_FILE"
     return 0
 }
 
@@ -360,44 +380,107 @@ ETA_STR=$(fmt_remaining_min "$REMAINING_MIN")
 
 # ---------- T3-lite: in-window linear burn forecast ----------
 #
-# Single-window, linear extrapolation. Assumes burn rate stays at the
-# block average from window start to now. Suppressed for ccusage fallback
-# (its window is misaligned with the API's) and during the first 5min
-# (a couple of minutes' burst extrapolates to absurd values).
+# Two projections, both single-window and linear:
 #
-# Math:
-#   elapsed = 300 - remaining_min
-#   projected_pct = utilization * 300 / elapsed
-#   exhausts_in_min = (100 - utilization) * elapsed / utilization     [if projected >= 100]
+#   CUM (cumulative, full window):
+#     burn = utilization / elapsed_min            # average since window start
+#     projected = utilization * 300 / elapsed_min
+#   REC (recent, sliding 30min window of trail):
+#     burn = (util_newest - util_oldest) / span_min
+#     projected = utilization + burn * remaining_min
 #
-# Stale cache: math is unchanged (resets_at is absolute) but utilization
-# is from cache time, so we annotate the source age in the tooltip.
+# CUM is stable but slow to react to mid-window model switches. REC reacts
+# within a few API refreshes once trail has ≥2 points spanning ≥5 min.
+# Pill uses REC when available, else CUM. Tooltip shows both labeled.
+#
+# Suppressed for ccusage fallback (window misalignment) and during the
+# first 5min elapsed (a couple of minutes' burst extrapolates to absurd
+# values). Stale cache annotates source age.
+
+# CUM (cumulative-rate) projection — always computed when API is healthy.
+CUM_PROJECTED_PCT=""
+CUM_EXHAUSTS_AT_HM=""
+CUM_GAP_STR=""
+
+# REC (recent-rate) projection — computed when trail has enough points.
+REC_PROJECTED_PCT=""
+REC_EXHAUSTS_AT_HM=""
+REC_GAP_STR=""
+REC_RATE=""             # %/min slope across the sliding window
+REC_WINDOW_LABEL=""     # e.g. "27m" — actual span used
+
+# Primary projection chosen for the pill (REC wins if available).
 PROJECTED_PCT=""
 EXHAUSTS_AT_HM=""
 EXHAUSTS_GAP_STR=""
+PRIMARY_KIND=""         # "rec" | "cum" | "" (none)
 PROJECT_NOTE=""
 PROJECT_TOO_EARLY=0
+
 if (( USE_API == 1 )); then
     ELAPSED_MIN=$(( 300 - REMAINING_MIN ))
     if (( ELAPSED_MIN < 5 )); then
         PROJECT_TOO_EARLY=1
     elif (( REMAINING_MIN > 0 )); then
-        PROJECTED_PCT=$(awk -v u="$PCT_FRAC" -v e="$ELAPSED_MIN" 'BEGIN { printf "%.1f", u * 300.0 / e }')
-        if awk -v p="$PROJECTED_PCT" 'BEGIN { exit (p >= 100) ? 0 : 1 }' \
+        # --- CUM: cumulative rate from window start ---
+        CUM_PROJECTED_PCT=$(awk -v u="$PCT_FRAC" -v e="$ELAPSED_MIN" 'BEGIN { printf "%.1f", u * 300.0 / e }')
+        if awk -v p="$CUM_PROJECTED_PCT" 'BEGIN { exit (p >= 100) ? 0 : 1 }' \
            && awk -v u="$PCT_FRAC" 'BEGIN { exit (u > 0) ? 0 : 1 }'; then
-            local_min_to_exh=$(awk -v u="$PCT_FRAC" -v e="$ELAPSED_MIN" 'BEGIN { v = (100 - u) * e / u; if (v < 0) v = 0; printf "%d", v + 0.5 }')
-            exh_epoch=$(( $(date +%s) + local_min_to_exh * 60 ))
-            EXHAUSTS_AT_HM=$(date -d "@$exh_epoch" +%H:%M 2>/dev/null || printf -- '--:--')
-            # Lockout window between predicted exhaustion and reset.
-            # remaining_min - min_to_exh = how long the user would be capped
-            # before the next quota refill. Always negative-signed in display.
-            local_gap_min=$(( REMAINING_MIN - local_min_to_exh ))
-            EXHAUSTS_GAP_STR="-$(fmt_gap_compact "$local_gap_min")"
+            cum_min_to_exh=$(awk -v u="$PCT_FRAC" -v e="$ELAPSED_MIN" 'BEGIN { v = (100 - u) * e / u; if (v < 0) v = 0; printf "%d", v + 0.5 }')
+            cum_exh_epoch=$(( $(date +%s) + cum_min_to_exh * 60 ))
+            CUM_EXHAUSTS_AT_HM=$(date -d "@$cum_exh_epoch" +%H:%M 2>/dev/null || printf -- '--:--')
+            CUM_GAP_STR="-$(fmt_gap_compact $(( REMAINING_MIN - cum_min_to_exh )))"
         fi
-        if (( USE_API_STALE == 1 )); then
-            PROJECT_NOTE="(linear, from data $(fmt_age "$CACHE_AGE_SECS") old)"
-        else
-            PROJECT_NOTE="(linear)"
+
+        # --- REC: sliding-window slope over the trail file ---
+        if [[ -f "$TRAIL_FILE" ]]; then
+            now_epoch=$(date +%s)
+            cutoff=$(( now_epoch - TRAIL_WINDOW_SECS ))
+            in_window=$(awk -v c="$cutoff" '$1 >= c' "$TRAIL_FILE")
+            n_in=$(printf '%s' "$in_window" | grep -c . || true)
+            if (( n_in >= TRAIL_MIN_POINTS )); then
+                read -r oldest_ts oldest_util <<< "$(printf '%s' "$in_window" | head -1)"
+                read -r newest_ts newest_util <<< "$(printf '%s' "$in_window" | tail -1)"
+                span_s=$(( newest_ts - oldest_ts ))
+                if (( span_s >= TRAIL_MIN_SPAN_SECS )); then
+                    REC_RATE=$(awk -v du="$newest_util" -v u0="$oldest_util" -v ds="$span_s" \
+                        'BEGIN { printf "%.4f", (du - u0) / (ds / 60.0) }')
+                    REC_WINDOW_LABEL="$(( span_s / 60 ))m"
+                    if awk -v r="$REC_RATE" 'BEGIN { exit (r > 0) ? 0 : 1 }'; then
+                        REC_PROJECTED_PCT=$(awk -v u="$PCT_FRAC" -v r="$REC_RATE" -v rm="$REMAINING_MIN" \
+                            'BEGIN { printf "%.1f", u + r * rm }')
+                        if awk -v p="$REC_PROJECTED_PCT" 'BEGIN { exit (p >= 100) ? 0 : 1 }'; then
+                            rec_min_to_exh=$(awk -v u="$PCT_FRAC" -v r="$REC_RATE" \
+                                'BEGIN { v = (100 - u) / r; if (v < 0) v = 0; printf "%d", v + 0.5 }')
+                            rec_exh_epoch=$(( now_epoch + rec_min_to_exh * 60 ))
+                            REC_EXHAUSTS_AT_HM=$(date -d "@$rec_exh_epoch" +%H:%M 2>/dev/null || printf -- '--:--')
+                            REC_GAP_STR="-$(fmt_gap_compact $(( REMAINING_MIN - rec_min_to_exh )))"
+                        fi
+                    else
+                        # Negative or zero rate: utilization flat or dropping.
+                        # Project just the current %; never an exhaust.
+                        REC_PROJECTED_PCT="$PCT_FRAC"
+                    fi
+                fi
+            fi
+        fi
+
+        # --- Pick primary for the pill: REC if computed, else CUM ---
+        if [[ -n "$REC_PROJECTED_PCT" ]]; then
+            PROJECTED_PCT="$REC_PROJECTED_PCT"
+            EXHAUSTS_AT_HM="$REC_EXHAUSTS_AT_HM"
+            EXHAUSTS_GAP_STR="$REC_GAP_STR"
+            PRIMARY_KIND="rec"
+            PROJECT_NOTE="(recent ${REC_WINDOW_LABEL}, linear)"
+        elif [[ -n "$CUM_PROJECTED_PCT" ]]; then
+            PROJECTED_PCT="$CUM_PROJECTED_PCT"
+            EXHAUSTS_AT_HM="$CUM_EXHAUSTS_AT_HM"
+            EXHAUSTS_GAP_STR="$CUM_GAP_STR"
+            PRIMARY_KIND="cum"
+            PROJECT_NOTE="(full window, linear)"
+        fi
+        if (( USE_API_STALE == 1 )) && [[ -n "$PROJECT_NOTE" ]]; then
+            PROJECT_NOTE="${PROJECT_NOTE%)}, from data $(fmt_age "$CACHE_AGE_SECS") old)"
         fi
     fi
 fi
@@ -429,8 +512,14 @@ if [[ "$MODE" == "--tui" ]]; then
         if (( PROJECT_TOO_EARLY == 1 )); then
             printf '              Projected: (too early to project)\n'
         elif [[ -n "$PROJECTED_PCT" ]]; then
-            printf '              Projected: ~%s%% at reset %s\n' "$PROJECTED_PCT" "$PROJECT_NOTE"
-            [[ -n "$EXHAUSTS_AT_HM" ]] && printf '              Exhausts ~%s (%s) at current rate\n' "$EXHAUSTS_AT_HM" "$EXHAUSTS_GAP_STR"
+            printf '              Projected (full window): ~%s%%' "${CUM_PROJECTED_PCT:-${PCT_FRAC}}"
+            [[ -n "$CUM_EXHAUSTS_AT_HM" ]] && printf ' → exh %s (%s)' "$CUM_EXHAUSTS_AT_HM" "$CUM_GAP_STR"
+            printf '\n'
+            if [[ -n "$REC_PROJECTED_PCT" ]]; then
+                printf '              Projected (recent %s): ~%s%%' "$REC_WINDOW_LABEL" "$REC_PROJECTED_PCT"
+                [[ -n "$REC_EXHAUSTS_AT_HM" ]] && printf ' → exh %s (%s)' "$REC_EXHAUSTS_AT_HM" "$REC_GAP_STR"
+                printf '\n'
+            fi
         fi
         printf '\n'
         if [[ -n "$SEVEN_DAY_PCT" ]]; then
@@ -495,8 +584,16 @@ build_tooltip() {
         if (( PROJECT_TOO_EARLY == 1 )); then
             lines+=("Projected: (too early to project)")
         elif [[ -n "$PROJECTED_PCT" ]]; then
-            lines+=("Projected: ~${PROJECTED_PCT}% at reset ${PROJECT_NOTE}")
-            [[ -n "$EXHAUSTS_AT_HM" ]] && lines+=("Exhausts ~${EXHAUSTS_AT_HM} (${EXHAUSTS_GAP_STR}) at current rate")
+            # Always show the cumulative-rate line (stable baseline).
+            local cum_label="Projected (full window): ~${CUM_PROJECTED_PCT:-${PCT_FRAC}}%"
+            [[ -n "$CUM_EXHAUSTS_AT_HM" ]] && cum_label+=" → exh ${CUM_EXHAUSTS_AT_HM} (${CUM_GAP_STR})"
+            lines+=("$cum_label")
+            # Add the recent-rate line when the trail had enough points.
+            if [[ -n "$REC_PROJECTED_PCT" ]]; then
+                local rec_label="Projected (recent ${REC_WINDOW_LABEL}): ~${REC_PROJECTED_PCT}%"
+                [[ -n "$REC_EXHAUSTS_AT_HM" ]] && rec_label+=" → exh ${REC_EXHAUSTS_AT_HM} (${REC_GAP_STR})"
+                lines+=("$rec_label")
+            fi
         fi
     else
         lines+=("5h: ${PCT_FRAC}%  (legacy ccusage estimate — no recent API data)")
