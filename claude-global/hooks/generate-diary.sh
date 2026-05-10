@@ -54,7 +54,10 @@ slugify() {
 
 # --- Versioning logic ---
 # Find existing diary entries for this session (any date, any version).
-EXISTING_FILES=$(grep -rl "<!-- Session ID: $SESSION_ID -->" "$DIARY_DIR"/*.md 2>/dev/null | sort)
+# Anchor regex to start-of-line so we don't false-match diaries whose body
+# discusses the auto-diary system (e.g. bullets containing the literal
+# "<!-- Session ID: X -->" as descriptive text).
+EXISTING_FILES=$(grep -rlP "^<!-- Session ID: $SESSION_ID -->" "$DIARY_DIR"/*.md 2>/dev/null | sort)
 LATEST_EXISTING=$(echo "$EXISTING_FILES" | tail -1)
 
 FROM_LINE=1
@@ -255,8 +258,10 @@ if [[ "$NEEDS_SLUG" == true ]]; then
     DIARY_FILE="$FINAL_FILE"
 fi
 
-# Append session ID and JSONL line range for deduplication and versioning
-if ! grep -q "<!-- Session ID:" "$DIARY_FILE"; then
+# Append session ID and JSONL line range for deduplication and versioning.
+# Anchor to start-of-line so a diary body that quotes the comment syntax
+# (e.g. when discussing the auto-diary system) doesn't suppress the footer.
+if ! grep -q "^<!-- Session ID:" "$DIARY_FILE"; then
     echo "" >> "$DIARY_FILE"
     echo "<!-- Session ID: $SESSION_ID -->" >> "$DIARY_FILE"
 fi

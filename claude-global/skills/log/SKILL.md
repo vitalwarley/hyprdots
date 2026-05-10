@@ -56,7 +56,7 @@ Reflect on the conversation history. Extract:
 ### Write to Daily Note
 
 1. Get today's date: `date +%Y-%m-%d` and `date +%H:%M`
-2. Read `~/life/notes/inbox/journal/YYYY-MM-DD.md`. If it doesn't exist, create with template:
+2. Read `~/life/notes/journal/dailies/YYYY-MM-DD.md`. If it doesn't exist, create with template:
 
 ```markdown
 ---
@@ -135,7 +135,7 @@ If the target is ambiguous, read the vault structure to resolve. If still unclea
 ## Step 3: Confirm
 
 Output a 1-line confirmation:
-- Daily log: "Logged to `inbox/journal/YYYY-MM-DD.md` at HH:MM."
+- Daily log: "Logged to `journal/dailies/YYYY-MM-DD.md` at HH:MM."
 - Custom: "Written to `path/to/file.md`."
 
 ## Design Principles
