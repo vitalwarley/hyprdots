@@ -31,6 +31,7 @@
 - save research as markdown artifacts (e.g., docs/discovery/) — never leave research only in conversation
 - Portuguese for team-facing communication (GitHub comments, sprint reports, internal docs); English for code and technical documentation
 - learning docs (`docs/learning/`) must always include mermaid diagrams to visualize concepts — sequence diagrams for async flows, flowcharts for decision logic, etc.
+- **doc-chain rule**: when modifying a non-trivial artifact (script, hook, skill, command, config, schema, data model), find its associated docs and update them **in the same change** — never let code-doc drift accumulate across commits. Places to check: `docs/` workflow files, same-dir `.md` siblings (`README.md`, `SKILL.md`), parent area hub, decision log, and any index/inventory that names the artifact (e.g. vault `areas/obsidian/skills.md` lists skills; project hubs list scripts). If unsure where the docs live, grep the repo for the artifact name before committing. Same-commit propagation prevents the gap from growing and forces you to notice when a change has wider implications than expected.
 
 ## Research & Decision-Making
 - for architecture/design decisions, perform web searches for current (2026) industry best practices
