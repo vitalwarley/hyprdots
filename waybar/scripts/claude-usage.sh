@@ -116,6 +116,16 @@ fmt_age() {
     fi
 }
 
+# Compact gap format for the projection lockout. Inputs in minutes; output
+# uses no spaces so the pill suffix stays tight (e.g. "-51m", "-1h23m").
+fmt_gap_compact() {
+    local mins="${1:-0}"
+    (( mins < 0 )) && mins=0
+    if (( mins < 60 )); then printf '%dm' "$mins"
+    else printf '%dh%02dm' $((mins/60)) $((mins%60))
+    fi
+}
+
 fmt_pct_1() { awk -v n="${1:-0}" 'BEGIN { printf "%.1f", n }'; }
 fmt_money_2() { awk -v n="${1:-0}" 'BEGIN { printf "%.2f", n }'; }
 fmt_int() { awk -v n="${1:-0}" 'BEGIN { printf "%d", n }'; }
@@ -364,6 +374,7 @@ ETA_STR=$(fmt_remaining_min "$REMAINING_MIN")
 # is from cache time, so we annotate the source age in the tooltip.
 PROJECTED_PCT=""
 EXHAUSTS_AT_HM=""
+EXHAUSTS_GAP_STR=""
 PROJECT_NOTE=""
 PROJECT_TOO_EARLY=0
 if (( USE_API == 1 )); then
@@ -377,6 +388,11 @@ if (( USE_API == 1 )); then
             local_min_to_exh=$(awk -v u="$PCT_FRAC" -v e="$ELAPSED_MIN" 'BEGIN { v = (100 - u) * e / u; if (v < 0) v = 0; printf "%d", v + 0.5 }')
             exh_epoch=$(( $(date +%s) + local_min_to_exh * 60 ))
             EXHAUSTS_AT_HM=$(date -d "@$exh_epoch" +%H:%M 2>/dev/null || printf -- '--:--')
+            # Lockout window between predicted exhaustion and reset.
+            # remaining_min - min_to_exh = how long the user would be capped
+            # before the next quota refill. Always negative-signed in display.
+            local_gap_min=$(( REMAINING_MIN - local_min_to_exh ))
+            EXHAUSTS_GAP_STR="-$(fmt_gap_compact "$local_gap_min")"
         fi
         if (( USE_API_STALE == 1 )); then
             PROJECT_NOTE="(linear, from data $(fmt_age "$CACHE_AGE_SECS") old)"
@@ -414,7 +430,7 @@ if [[ "$MODE" == "--tui" ]]; then
             printf '              Projected: (too early to project)\n'
         elif [[ -n "$PROJECTED_PCT" ]]; then
             printf '              Projected: ~%s%% at reset %s\n' "$PROJECTED_PCT" "$PROJECT_NOTE"
-            [[ -n "$EXHAUSTS_AT_HM" ]] && printf '              Exhausts ~%s at current rate\n' "$EXHAUSTS_AT_HM"
+            [[ -n "$EXHAUSTS_AT_HM" ]] && printf '              Exhausts ~%s (%s) at current rate\n' "$EXHAUSTS_AT_HM" "$EXHAUSTS_GAP_STR"
         fi
         printf '\n'
         if [[ -n "$SEVEN_DAY_PCT" ]]; then
@@ -456,7 +472,7 @@ elif (( USE_API_STALE == 1 )); then
 else
     PILL_SUFFIX=""
 fi
-[[ -n "$EXHAUSTS_AT_HM" ]] && PILL_SUFFIX="${PILL_SUFFIX}  →exh ${EXHAUSTS_AT_HM}"
+[[ -n "$EXHAUSTS_AT_HM" ]] && PILL_SUFFIX="${PILL_SUFFIX}  →exh ${EXHAUSTS_AT_HM} (${EXHAUSTS_GAP_STR})"
 PILL_TEXT="${PILL_ICON}  ${PCT_INT}% · ${ETA_STR}${PILL_SUFFIX}"
 
 build_tooltip() {
@@ -480,7 +496,7 @@ build_tooltip() {
             lines+=("Projected: (too early to project)")
         elif [[ -n "$PROJECTED_PCT" ]]; then
             lines+=("Projected: ~${PROJECTED_PCT}% at reset ${PROJECT_NOTE}")
-            [[ -n "$EXHAUSTS_AT_HM" ]] && lines+=("Exhausts ~${EXHAUSTS_AT_HM} at current rate")
+            [[ -n "$EXHAUSTS_AT_HM" ]] && lines+=("Exhausts ~${EXHAUSTS_AT_HM} (${EXHAUSTS_GAP_STR}) at current rate")
         fi
     else
         lines+=("5h: ${PCT_FRAC}%  (legacy ccusage estimate — no recent API data)")

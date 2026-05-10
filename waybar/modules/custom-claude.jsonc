@@ -4,7 +4,7 @@
     "return-type": "json",
     "interval": 30,
     "tooltip": true,
-    "max-length": 36
+    "max-length": 44
     // Icon prefix is set in the wrapper's PILL_TEXT (printf '\Uf0674'),
     // not via "format" here — high-codepoint Nerd Font glyphs don't
     // survive editor round-trips reliably. See claude-usage.sh.
