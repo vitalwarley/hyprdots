@@ -346,6 +346,44 @@ fi
 
 ETA_STR=$(fmt_remaining_min "$REMAINING_MIN")
 
+# ---------- T3-lite: in-window linear burn forecast ----------
+#
+# Single-window, linear extrapolation. Assumes burn rate stays at the
+# block average from window start to now. Suppressed for ccusage fallback
+# (its window is misaligned with the API's) and during the first 5min
+# (a couple of minutes' burst extrapolates to absurd values).
+#
+# Math:
+#   elapsed = 300 - remaining_min
+#   projected_pct = utilization * 300 / elapsed
+#   exhausts_in_min = (100 - utilization) * elapsed / utilization     [if projected >= 100]
+#
+# Stale cache: math is unchanged (resets_at is absolute) but utilization
+# is from cache time, so we annotate the source age in the tooltip.
+PROJECTED_PCT=""
+EXHAUSTS_AT_HM=""
+PROJECT_NOTE=""
+PROJECT_TOO_EARLY=0
+if (( USE_API == 1 )); then
+    ELAPSED_MIN=$(( 300 - REMAINING_MIN ))
+    if (( ELAPSED_MIN < 5 )); then
+        PROJECT_TOO_EARLY=1
+    elif (( REMAINING_MIN > 0 )); then
+        PROJECTED_PCT=$(awk -v u="$PCT_FRAC" -v e="$ELAPSED_MIN" 'BEGIN { printf "%.1f", u * 300.0 / e }')
+        if awk -v p="$PROJECTED_PCT" 'BEGIN { exit (p >= 100) ? 0 : 1 }' \
+           && awk -v u="$PCT_FRAC" 'BEGIN { exit (u > 0) ? 0 : 1 }'; then
+            local_min_to_exh=$(awk -v u="$PCT_FRAC" -v e="$ELAPSED_MIN" 'BEGIN { v = (100 - u) * e / u; if (v < 0) v = 0; printf "%d", v + 0.5 }')
+            exh_epoch=$(( $(date +%s) + local_min_to_exh * 60 ))
+            EXHAUSTS_AT_HM=$(date -d "@$exh_epoch" +%H:%M 2>/dev/null || printf -- '--:--')
+        fi
+        if (( USE_API_STALE == 1 )); then
+            PROJECT_NOTE="(linear, from data $(fmt_age "$CACHE_AGE_SECS") old)"
+        else
+            PROJECT_NOTE="(linear)"
+        fi
+    fi
+fi
+
 # ---------- ccusage enrichment values (always optional) ----------
 
 if [[ -n "$CC_BLOCK" ]]; then
@@ -380,10 +418,17 @@ if [[ "$MODE" == "--tui" ]]; then
     if (( USE_API == 1 )); then
         printf '5h window:    [%s] %5.1f%%\n' "$bar" "$PCT_FRAC"
         if (( USE_API_STALE == 1 )); then
-            printf '              resets %s   (in %s)   [stale %s]\n\n' "$(fmt_local_hm "$RESETS_5H")" "$ETA_STR" "$(fmt_age "$CACHE_AGE_SECS")"
+            printf '              resets %s   (in %s)   [stale %s]\n' "$(fmt_local_hm "$RESETS_5H")" "$ETA_STR" "$(fmt_age "$CACHE_AGE_SECS")"
         else
-            printf '              resets %s   (in %s)\n\n' "$(fmt_local_hm "$RESETS_5H")" "$ETA_STR"
+            printf '              resets %s   (in %s)\n' "$(fmt_local_hm "$RESETS_5H")" "$ETA_STR"
         fi
+        if (( PROJECT_TOO_EARLY == 1 )); then
+            printf '              Projected: (too early to project)\n'
+        elif [[ -n "$PROJECTED_PCT" ]]; then
+            printf '              Projected: ~%s%% at reset %s\n' "$PROJECTED_PCT" "$PROJECT_NOTE"
+            [[ -n "$EXHAUSTS_AT_HM" ]] && printf '              Exhausts ~%s at current rate\n' "$EXHAUSTS_AT_HM"
+        fi
+        printf '\n'
         if [[ -n "$SEVEN_DAY_PCT" ]]; then
             printf '7-day:        %5.1f%%   (resets %s)\n' "$SEVEN_DAY_PCT" "$(fmt_local_day_hm "$SEVEN_DAY_RESETS")"
         fi
@@ -424,9 +469,10 @@ fi
 # or any other MDI codepoint.
 PILL_ICON=$(printf '\Uf0674')
 # Staleness/fallback markers in the pill text:
-#   fresh     : "  47% · 1h 48m"
-#   stale Xm  : "  47% · 1h 48m  ·5m"   (cache served from API but not refreshed)
-#   ccusage   : "  47% · 1h 48m  CC"    (last-resort, ccusage-derived; misleads vs claude.ai)
+#   fresh         : "  47% · 1h 48m"
+#   stale Xm      : "  47% · 1h 48m  ·5m"            (cache served from API but not refreshed)
+#   ccusage       : "  47% · 1h 48m  CC"             (last-resort; misleads vs claude.ai)
+#   exhausts soon : "  82% · 1h 12m  →exh 14:35"     (linear projection ≥ 100% before reset)
 if (( USE_API == 0 )); then
     PILL_SUFFIX="  CC"
 elif (( USE_API_STALE == 1 )); then
@@ -434,6 +480,7 @@ elif (( USE_API_STALE == 1 )); then
 else
     PILL_SUFFIX=""
 fi
+[[ -n "$EXHAUSTS_AT_HM" ]] && PILL_SUFFIX="${PILL_SUFFIX}  →exh ${EXHAUSTS_AT_HM}"
 PILL_TEXT="${PILL_ICON}  ${PCT_INT}% · ${ETA_STR}${PILL_SUFFIX}"
 
 build_tooltip() {
@@ -459,6 +506,12 @@ build_tooltip() {
             lines+=("5h: ${PCT_FRAC}%  resets ${resets_5h_hm}  (in ${ETA_STR})  [stale $(fmt_age "$CACHE_AGE_SECS")]")
         else
             lines+=("5h: ${PCT_FRAC}%  resets ${resets_5h_hm}  (in ${ETA_STR})")
+        fi
+        if (( PROJECT_TOO_EARLY == 1 )); then
+            lines+=("Projected: (too early to project)")
+        elif [[ -n "$PROJECTED_PCT" ]]; then
+            lines+=("Projected: ~${PROJECTED_PCT}% at reset ${PROJECT_NOTE}")
+            [[ -n "$EXHAUSTS_AT_HM" ]] && lines+=("Exhausts ~${EXHAUSTS_AT_HM} at current rate")
         fi
     else
         lines+=("5h: ${PCT_FRAC}%  (legacy ccusage estimate — no recent API data)")
