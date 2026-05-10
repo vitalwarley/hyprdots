@@ -50,3 +50,4 @@ hypr/themes/
 # hypr/workflows/gaming.conf
 # hypr/workflows/powersaver.conf
 # hypr/workflows/snappy.conf
+__pycache__/
