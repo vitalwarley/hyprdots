@@ -25,7 +25,18 @@ set -o pipefail
 CREDS=~/.claude/.credentials.json
 USAGE_URL="https://api.anthropic.com/api/oauth/usage"
 USAGE_CACHE="/tmp/claude-usage-api-cache.json"
-USAGE_CACHE_TTL=30   # 30s — covers waybar 30s interval + watch -n 5 (6 hits)
+USAGE_FAIL_LOCK="/tmp/claude-usage-api-fail.lock"
+# Refresh API only every 5 min — the endpoint rate-limits aggressively
+# (HTTP 429 with no useful Retry-After). Pill remains responsive because
+# we serve from cache between refreshes.
+USAGE_CACHE_TTL=300
+# Stale cache is preferred over ccusage fallback for up to 1h. After 1h
+# without a successful refresh, drop to ccusage with the legacy 800k
+# limit. This makes transient outages (network blip, 429 burst) invisible.
+STALE_MAX_SECS=3600
+# After a refresh failure (any cause), don't re-attempt for this long.
+# Lets a 429 cool off; lets a network blip not pin every poll trying.
+RETRY_BACKOFF_SECS=300
 
 CCUSAGE_CACHE="/tmp/claude-usage-cache.json"
 CCUSAGE_DAILY_CACHE="/tmp/claude-usage-daily-cache.json"
@@ -98,6 +109,14 @@ fmt_tokens_full() {
     awk -v n="${1:-0}" 'BEGIN { n=int(n); s=""; sign=""; if (n<0) {sign="-"; n=-n}; while (n>=1000) { s=sprintf(",%03d%s", n%1000, s); n=int(n/1000) } printf "%s%d%s", sign, n, s }'
 }
 
+fmt_age() {
+    local s="${1:-0}"
+    if (( s < 60 )); then printf '%ds' "$s"
+    elif (( s < 3600 )); then printf '%dm' $((s/60))
+    else printf '%dh%02dm' $((s/3600)) $(((s%3600)/60))
+    fi
+}
+
 fmt_pct_1() { awk -v n="${1:-0}" 'BEGIN { printf "%.1f", n }'; }
 fmt_money_2() { awk -v n="${1:-0}" 'BEGIN { printf "%.2f", n }'; }
 fmt_int() { awk -v n="${1:-0}" 'BEGIN { printf "%d", n }'; }
@@ -141,38 +160,51 @@ minutes_until() {
 
 # ---------- API source ----------
 
-# Fetch /api/oauth/usage with bearer token. Cache 30s.
-# Output JSON to stdout, return 0. On any failure, return non-zero.
-get_api_usage() {
+# Returns 0 if we should attempt to refresh the API cache now; 1 otherwise.
+# Skips if cache is still fresh OR if the recent fail-lock hasn't cooled.
+should_refresh_api() {
+    local now
+    now=$(date +%s)
     if [[ -f "$USAGE_CACHE" ]]; then
-        local mtime now age
-        mtime=$(stat -c %Y "$USAGE_CACHE" 2>/dev/null || echo 0)
-        now=$(date +%s)
-        age=$(( now - mtime ))
-        if [[ $age -lt $USAGE_CACHE_TTL ]]; then
-            cat "$USAGE_CACHE"
-            return 0
-        fi
+        local age=$(( now - $(stat -c %Y "$USAGE_CACHE" 2>/dev/null || echo 0) ))
+        (( age < USAGE_CACHE_TTL )) && return 1
     fi
-    [[ -f "$CREDS" ]] || return 1
-    local token
-    token=$(jq -r '.claudeAiOauth.accessToken // empty' "$CREDS" 2>/dev/null) || return 1
-    [[ -n "$token" ]] || return 1
-    # 6s timeout — pill must not block waybar render.
-    local body
-    if ! body=$(curl -sS --max-time 6 \
-            -H "Authorization: Bearer $token" \
-            -H "anthropic-beta: oauth-2025-04-20" \
-            -H "User-Agent: claude-usage-pill/1.0" \
-            "$USAGE_URL" 2>/dev/null); then
+    if [[ -f "$USAGE_FAIL_LOCK" ]]; then
+        local lock_age=$(( now - $(stat -c %Y "$USAGE_FAIL_LOCK" 2>/dev/null || echo 0) ))
+        (( lock_age < RETRY_BACKOFF_SECS )) && return 1
+    fi
+    return 0
+}
+
+# Fetch /api/oauth/usage with bearer token; on success update cache and
+# clear fail-lock. On failure (any cause: network, 401, 429, malformed),
+# touch fail-lock to suppress retries for RETRY_BACKOFF_SECS.
+try_refresh_api() {
+    [[ -f "$CREDS" ]] || { touch "$USAGE_FAIL_LOCK"; return 1; }
+    local token body http_code
+    token=$(jq -r '.claudeAiOauth.accessToken // empty' "$CREDS" 2>/dev/null) || { touch "$USAGE_FAIL_LOCK"; return 1; }
+    [[ -n "$token" ]] || { touch "$USAGE_FAIL_LOCK"; return 1; }
+    # Capture HTTP code separately so 4xx/5xx are treated as failures even
+    # when curl itself "succeeds" (gets a response).
+    local tmp; tmp=$(mktemp)
+    http_code=$(curl -sS --max-time 6 -o "$tmp" -w '%{http_code}' \
+        -H "Authorization: Bearer $token" \
+        -H "anthropic-beta: oauth-2025-04-20" \
+        -H "User-Agent: claude-usage-pill/1.0" \
+        "$USAGE_URL" 2>/dev/null) || true
+    if [[ "$http_code" != "200" ]]; then
+        rm -f "$tmp"
+        touch "$USAGE_FAIL_LOCK"
         return 1
     fi
-    # Sanity check it's the shape we expect.
+    body=$(cat "$tmp"); rm -f "$tmp"
     if ! printf '%s' "$body" | jq -e '.five_hour.utilization' >/dev/null 2>&1; then
+        touch "$USAGE_FAIL_LOCK"
         return 1
     fi
     printf '%s' "$body" > "$USAGE_CACHE"
-    printf '%s' "$body"
+    rm -f "$USAGE_FAIL_LOCK"
+    return 0
 }
 
 # ---------- ccusage (enrichment) ----------
@@ -197,12 +229,35 @@ get_ccusage_active() {
 }
 
 # ---------- pick path ----------
+#
+# Tiered selection (in order of preference):
+#   1. Fresh API cache  (age < USAGE_CACHE_TTL, set USE_API=1, USE_API_STALE=0)
+#   2. Stale API cache  (age < STALE_MAX_SECS,  set USE_API=1, USE_API_STALE=1)
+#   3. ccusage fallback (no usable API at all,  set USE_API=0)
+#
+# Staleness covers transient failures (rate limit, network blip, brief
+# auth gap) without dropping back to ccusage's misleading numbers.
 
 API_JSON=""
-if API_JSON=$(get_api_usage); then
-    USE_API=1
-else
-    USE_API=0
+USE_API=0
+USE_API_STALE=0
+CACHE_AGE_SECS=0
+
+if should_refresh_api; then
+    try_refresh_api || true
+fi
+
+if [[ -f "$USAGE_CACHE" ]]; then
+    CACHE_AGE_SECS=$(( $(date +%s) - $(stat -c %Y "$USAGE_CACHE" 2>/dev/null || echo 0) ))
+    if (( CACHE_AGE_SECS < STALE_MAX_SECS )); then
+        API_JSON=$(cat "$USAGE_CACHE")
+        if printf '%s' "$API_JSON" | jq -e '.five_hour.utilization' >/dev/null 2>&1; then
+            USE_API=1
+            (( CACHE_AGE_SECS >= USAGE_CACHE_TTL )) && USE_API_STALE=1
+        else
+            API_JSON=""
+        fi
+    fi
 fi
 
 CC_JSON=""
@@ -252,7 +307,11 @@ if (( USE_API == 1 )); then
     EXTRA_USED=$(jq -r '.extra_usage.used_credits // 0' <<<"$API_JSON")
     EXTRA_PCT=$(jq -r '.extra_usage.utilization // 0' <<<"$API_JSON")
     EXTRA_CCY=$(jq -r '.extra_usage.currency // ""' <<<"$API_JSON")
-    SOURCE_LABEL="api"
+    if (( USE_API_STALE == 1 )); then
+        SOURCE_LABEL="api stale ($(fmt_age "$CACHE_AGE_SECS"))"
+    else
+        SOURCE_LABEL="api"
+    fi
 else
     # Legacy ccusage-derived pct
     INPUT=$(jq -r '.tokenCounts.inputTokens // 0' <<<"$CC_BLOCK")
@@ -275,6 +334,14 @@ elif (( PCT_INT <= 85 )); then
     CLASS="warning"
 else
     CLASS="critical"
+fi
+# Layer a staleness/fallback marker on the threshold class so user-style.css
+# can dim or annotate it. Space-joined, waybar applies each as a separate
+# CSS class.
+if (( USE_API == 0 )); then
+    CLASS="${CLASS:+$CLASS }fallback"
+elif (( USE_API_STALE == 1 )); then
+    CLASS="${CLASS:+$CLASS }stale"
 fi
 
 ETA_STR=$(fmt_remaining_min "$REMAINING_MIN")
@@ -312,7 +379,11 @@ if [[ "$MODE" == "--tui" ]]; then
     printf '======================================================\n\n'
     if (( USE_API == 1 )); then
         printf '5h window:    [%s] %5.1f%%\n' "$bar" "$PCT_FRAC"
-        printf '              resets %s   (in %s)\n\n' "$(fmt_local_hm "$RESETS_5H")" "$ETA_STR"
+        if (( USE_API_STALE == 1 )); then
+            printf '              resets %s   (in %s)   [stale %s]\n\n' "$(fmt_local_hm "$RESETS_5H")" "$ETA_STR" "$(fmt_age "$CACHE_AGE_SECS")"
+        else
+            printf '              resets %s   (in %s)\n\n' "$(fmt_local_hm "$RESETS_5H")" "$ETA_STR"
+        fi
         if [[ -n "$SEVEN_DAY_PCT" ]]; then
             printf '7-day:        %5.1f%%   (resets %s)\n' "$SEVEN_DAY_PCT" "$(fmt_local_day_hm "$SEVEN_DAY_RESETS")"
         fi
@@ -352,7 +423,18 @@ fi
 # survive the editing toolchain reliably. Swap to '\Uf06a9' for robot (󰚩)
 # or any other MDI codepoint.
 PILL_ICON=$(printf '\Uf0674')
-PILL_TEXT="${PILL_ICON}  ${PCT_INT}% · ${ETA_STR}"
+# Staleness/fallback markers in the pill text:
+#   fresh     : "  47% · 1h 48m"
+#   stale Xm  : "  47% · 1h 48m  ·5m"   (cache served from API but not refreshed)
+#   ccusage   : "  47% · 1h 48m  CC"    (last-resort, ccusage-derived; misleads vs claude.ai)
+if (( USE_API == 0 )); then
+    PILL_SUFFIX="  CC"
+elif (( USE_API_STALE == 1 )); then
+    PILL_SUFFIX="  ·$(fmt_age "$CACHE_AGE_SECS")"
+else
+    PILL_SUFFIX=""
+fi
+PILL_TEXT="${PILL_ICON}  ${PCT_INT}% · ${ETA_STR}${PILL_SUFFIX}"
 
 build_tooltip() {
     local resets_5h_hm resets_7d_hm cc_start_hm cc_end_hm cc_burn_int
@@ -373,9 +455,13 @@ build_tooltip() {
 
     local lines=()
     if (( USE_API == 1 )); then
-        lines+=("5h: ${PCT_FRAC}%  resets ${resets_5h_hm}  (in ${ETA_STR})")
+        if (( USE_API_STALE == 1 )); then
+            lines+=("5h: ${PCT_FRAC}%  resets ${resets_5h_hm}  (in ${ETA_STR})  [stale $(fmt_age "$CACHE_AGE_SECS")]")
+        else
+            lines+=("5h: ${PCT_FRAC}%  resets ${resets_5h_hm}  (in ${ETA_STR})")
+        fi
     else
-        lines+=("5h: ${PCT_FRAC}%  (legacy ccusage estimate)")
+        lines+=("5h: ${PCT_FRAC}%  (legacy ccusage estimate — no recent API data)")
     fi
     [[ -n "$SEVEN_DAY_PCT" ]] && lines+=("7d: ${seven_day_str}%  resets ${resets_7d_hm}")
     [[ -n "$SONNET_PCT" ]]    && lines+=("  Sonnet: ${sonnet_str}%")
