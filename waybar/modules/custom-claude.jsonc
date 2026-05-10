@@ -4,11 +4,11 @@
     "return-type": "json",
     "interval": 30,
     "tooltip": true,
-    "max-length": 30,
-    // Anthropic/Claude doesn't have a Nerd Font glyph; using nf-md-creation
-    // (sparkle) as it's the widely-adopted "AI" indicator across linux setups.
-    // Swap for nf-md-robot (󰊩) or any preferred glyph.
-    "format": "  {}"
+    "max-length": 30
+    // Icon prefix is set in the wrapper's PILL_TEXT (printf '\Uf0674'),
+    // not via "format" here — high-codepoint Nerd Font glyphs don't
+    // survive editor round-trips reliably. See claude-usage.sh.
   }
 }
+
 

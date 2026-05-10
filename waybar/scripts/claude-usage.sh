@@ -346,7 +346,13 @@ fi
 
 # ---------- Pill output ----------
 
-PILL_TEXT="${PCT_INT}% · ${ETA_STR}"
+# Icon: Nerd Font MDI "creation" (sparkle, U+F0674). Anthropic doesn't have
+# its own Nerd Font glyph; sparkle matches Claude.ai's UI aesthetic. Built
+# via printf '\U' escape because high-codepoint Unicode literals don't
+# survive the editing toolchain reliably. Swap to '\Uf06a9' for robot (󰚩)
+# or any other MDI codepoint.
+PILL_ICON=$(printf '\Uf0674')
+PILL_TEXT="${PILL_ICON}  ${PCT_INT}% · ${ETA_STR}"
 
 build_tooltip() {
     local resets_5h_hm resets_7d_hm cc_start_hm cc_end_hm cc_burn_int
