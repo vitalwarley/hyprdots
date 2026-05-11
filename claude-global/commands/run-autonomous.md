@@ -121,7 +121,7 @@ Phase 1: Implement → Phase 2: Review → Phase 3: Fix → Phase 2b: Re-review 
 
 **Phase 3 — Fix** (`--max-turns / 3`, skipped if no BLOCKING findings):
 - Reads the findings file, fixes each BLOCKING issue
-- Runs validation (`scripts/pre-push-quick.sh`)
+- Runs the project's pre-push validation, discovered adaptively from project docs (CLAUDE.md, README.md, CONTRIBUTING.md, AGENTS.md, docs/). Falls back to inferring from project layout (Makefile target, package.json script, `uv run pytest`, etc.). Skips if no validation can be determined.
 - Does NOT commit
 
 **Phase 2b — Re-review** (`--max-turns / 4`, scoped to fix delta only):
