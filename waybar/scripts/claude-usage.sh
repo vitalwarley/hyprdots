@@ -263,14 +263,27 @@ get_ccusage_active() {
 #   1. Fresh API cache  (age < USAGE_CACHE_TTL, set USE_API=1, USE_API_STALE=0)
 #   2. Stale API cache  (age < STALE_MAX_SECS,  set USE_API=1, USE_API_STALE=1)
 #   3. ccusage fallback (no usable API at all,  set USE_API=0)
+#   4. Idle             (both sources unusable but cache file exists with
+#                        valid content, USE_IDLE=1) — split into two sub-tiers
+#                        depending on whether the cached window still applies.
+#   5. Hard fail        (no cache at all OR cache unparseable AND ccusage
+#                        empty) — emits "?"
 #
-# Staleness covers transient failures (rate limit, network blip, brief
-# auth gap) without dropping back to ccusage's misleading numbers.
+# Tiers 1–3 cover transient failures without dropping into misleading numbers.
+# Tier 4 (idle) is the common case when Claude Code has been unused for hours:
+# the OAuth bearer rotates with Claude Code use, so a multi-hour gap lets it
+# expire — API returns 401, fail-lock pins the failure, cache ages past
+# STALE_MAX_SECS, and ccusage has no active block to report. Without tier 4,
+# the user wakes up to "?" every morning. With tier 4, the pill carries
+# enough context that the user can tell "idle" from "broken" at a glance.
 
 API_JSON=""
 USE_API=0
 USE_API_STALE=0
 CACHE_AGE_SECS=0
+USE_IDLE=0
+IDLE_WINDOW_VALID=0          # 1 if cached resets_at is still in the future
+IDLE_CACHED_UTIL=""          # cached five_hour.utilization (only when window valid)
 
 if should_refresh_api; then
     try_refresh_api || true
@@ -299,12 +312,34 @@ if (( USE_API == 0 )); then
     fi
 fi
 
-# Hard-fail: neither source available.
-if (( USE_API == 0 )) && [[ -z "$CC_BLOCK" ]]; then
+# Idle detection: if neither tier 1–3 has anything to show but the cache
+# file is still readable, use it as an "idle" snapshot. The cached
+# resets_at decides whether we still trust the cached %:
+#   - resets_at > now : cached window has not yet ended → cached % is the
+#                       current state by definition (nothing's been spent
+#                       since); show it with an idle marker.
+#   - resets_at <= now: previous window has elapsed; current % is unknown.
+#                       Pill drops the digit and shows a reset marker.
+if (( USE_API == 0 )) && [[ -z "$CC_BLOCK" ]] && [[ -f "$USAGE_CACHE" ]]; then
+    IDLE_CACHE_JSON=$(cat "$USAGE_CACHE" 2>/dev/null || true)
+    if [[ -n "$IDLE_CACHE_JSON" ]] && printf '%s' "$IDLE_CACHE_JSON" | jq -e '.five_hour.utilization' >/dev/null 2>&1; then
+        USE_IDLE=1
+        API_JSON="$IDLE_CACHE_JSON"  # tooltip uses it for 7d/per-model/extra context
+        idle_resets_iso=$(jq -r '.five_hour.resets_at // empty' <<<"$IDLE_CACHE_JSON")
+        idle_resets_epoch=$(iso_to_epoch "$idle_resets_iso")
+        if (( idle_resets_epoch > $(date +%s) )); then
+            IDLE_WINDOW_VALID=1
+            IDLE_CACHED_UTIL=$(jq -r '.five_hour.utilization // 0' <<<"$IDLE_CACHE_JSON")
+        fi
+    fi
+fi
+
+# Hard-fail: no usable source AND no cache to fall back on (true breakage).
+if (( USE_API == 0 )) && [[ -z "$CC_BLOCK" ]] && (( USE_IDLE == 0 )); then
     if [[ "$MODE" == "--tui" ]]; then
-        emit_tui_fallback "Both API (api.anthropic.com/api/oauth/usage) and ccusage failed. Check network + token expiry: $CREDS"
+        emit_tui_fallback "Both API (api.anthropic.com/api/oauth/usage) and ccusage failed, and no cache to fall back on. Check network + token: $CREDS"
     else
-        emit_pill_fallback "?" "API + ccusage both failed"
+        emit_pill_fallback "?" "API + ccusage both failed; no cache to fall back on"
     fi
     exit 0
 fi
@@ -344,6 +379,34 @@ if (( USE_API == 1 )); then
     else
         SOURCE_LABEL="api"
     fi
+elif (( USE_IDLE == 1 )); then
+    # Idle: cache exists but is older than STALE_MAX_SECS AND ccusage has
+    # no active block. Sub-divide on whether the cached 5h window is still
+    # in effect; the cached % is the current state only if it is.
+    RESETS_5H=$(jq -r '.five_hour.resets_at // empty' <<<"$API_JSON")
+    SEVEN_DAY_PCT=$(jq -r '.seven_day.utilization // empty' <<<"$API_JSON")
+    SEVEN_DAY_RESETS=$(jq -r '.seven_day.resets_at // empty' <<<"$API_JSON")
+    OPUS_PCT=$(jq -r '.seven_day_opus.utilization // empty' <<<"$API_JSON")
+    SONNET_PCT=$(jq -r '.seven_day_sonnet.utilization // empty' <<<"$API_JSON")
+    EXTRA_ENABLED=$(jq -r '.extra_usage.is_enabled // false' <<<"$API_JSON")
+    EXTRA_LIMIT=$(jq -r '.extra_usage.monthly_limit // 0' <<<"$API_JSON")
+    EXTRA_USED=$(jq -r '.extra_usage.used_credits // 0' <<<"$API_JSON")
+    EXTRA_PCT=$(jq -r '.extra_usage.utilization // 0' <<<"$API_JSON")
+    EXTRA_CCY=$(jq -r '.extra_usage.currency // ""' <<<"$API_JSON")
+    # LAST_KNOWN_UTIL is what was cached. We always show it in the tooltip
+    # (it's the only honest data we have). We only mirror it into PCT_FRAC
+    # / PCT_INT when the cached window is still current.
+    LAST_KNOWN_UTIL=$(jq -r '.five_hour.utilization // 0' <<<"$API_JSON")
+    if (( IDLE_WINDOW_VALID == 1 )); then
+        PCT_FRAC="$LAST_KNOWN_UTIL"
+        PCT_INT=$(printf '%.0f' "$PCT_FRAC")
+        REMAINING_MIN=$(minutes_until "$RESETS_5H")
+    else
+        PCT_FRAC=0
+        PCT_INT=0
+        REMAINING_MIN=0
+    fi
+    SOURCE_LABEL="idle ($(fmt_age "$CACHE_AGE_SECS") since last refresh)"
 else
     # Legacy ccusage-derived pct
     INPUT=$(jq -r '.tokenCounts.inputTokens // 0' <<<"$CC_BLOCK")
@@ -360,20 +423,27 @@ else
     SOURCE_LABEL="ccusage-fallback"
 fi
 
-if (( PCT_INT < 60 )); then
-    CLASS=""
-elif (( PCT_INT <= 85 )); then
-    CLASS="warning"
+if (( USE_IDLE == 1 )); then
+    # Idle suppresses threshold-based class colors entirely — the digit
+    # (when shown) is from before the gap; coloring it as a real warning
+    # would re-introduce the confusion B1 is trying to fix.
+    CLASS="idle"
 else
-    CLASS="critical"
-fi
-# Layer a staleness/fallback marker on the threshold class so user-style.css
-# can dim or annotate it. Space-joined, waybar applies each as a separate
-# CSS class.
-if (( USE_API == 0 )); then
-    CLASS="${CLASS:+$CLASS }fallback"
-elif (( USE_API_STALE == 1 )); then
-    CLASS="${CLASS:+$CLASS }stale"
+    if (( PCT_INT < 60 )); then
+        CLASS=""
+    elif (( PCT_INT <= 85 )); then
+        CLASS="warning"
+    else
+        CLASS="critical"
+    fi
+    # Layer a staleness/fallback marker on the threshold class so user-style.css
+    # can dim or annotate it. Space-joined, waybar applies each as a separate
+    # CSS class.
+    if (( USE_API == 0 )); then
+        CLASS="${CLASS:+$CLASS }fallback"
+    elif (( USE_API_STALE == 1 )); then
+        CLASS="${CLASS:+$CLASS }stale"
+    fi
 fi
 
 ETA_STR=$(fmt_remaining_min "$REMAINING_MIN")
@@ -417,7 +487,7 @@ PRIMARY_KIND=""         # "rec" | "cum" | "" (none)
 PROJECT_NOTE=""
 PROJECT_TOO_EARLY=0
 
-if (( USE_API == 1 )); then
+if (( USE_API == 1 )) && (( USE_IDLE == 0 )); then
     ELAPSED_MIN=$(( 300 - REMAINING_MIN ))
     if (( ELAPSED_MIN < 5 )); then
         PROJECT_TOO_EARLY=1
@@ -502,6 +572,30 @@ if [[ "$MODE" == "--tui" ]]; then
 
     printf 'Claude Code Usage Monitor   (source: %s)\n' "$SOURCE_LABEL"
     printf '======================================================\n\n'
+    if (( USE_IDLE == 1 )); then
+        idle_age_str=$(fmt_age "$CACHE_AGE_SECS")
+        printf 'Status:       idle — no Claude Code activity for %s\n\n' "$idle_age_str"
+        if (( IDLE_WINDOW_VALID == 1 )); then
+            printf '5h window:    [%s] %5.1f%%   (still active, no spend since last refresh)\n' "$bar" "$PCT_FRAC"
+            printf '              resets %s   (in %s)\n\n' "$(fmt_local_hm "$RESETS_5H")" "$ETA_STR"
+        else
+            printf '5h window:    —     (previous window ended; current window unknown)\n'
+            printf '              last known: %.1f%% at reset %s\n\n' "$LAST_KNOWN_UTIL" "$(fmt_local_hm "$RESETS_5H")"
+        fi
+        if [[ -n "$SEVEN_DAY_PCT" ]]; then
+            printf '7-day:        %5.1f%%   (resets %s, cached)\n' "$SEVEN_DAY_PCT" "$(fmt_local_day_hm "$SEVEN_DAY_RESETS")"
+        fi
+        [[ -n "$SONNET_PCT" ]] && printf '  Sonnet:     %5.1f%%\n' "$SONNET_PCT"
+        [[ -n "$OPUS_PCT" ]]   && printf '  Opus:       %5.1f%%\n' "$OPUS_PCT"
+        if [[ "$EXTRA_ENABLED" == "true" ]]; then
+            printf '\nExtra usage:  %s %s spent / %s %s  (%.1f%%, cached)\n' \
+                "$EXTRA_CCY" "$(fmt_minor_units_br "$EXTRA_USED")" \
+                "$EXTRA_CCY" "$(fmt_minor_units_br "$EXTRA_LIMIT")" "$EXTRA_PCT"
+        fi
+        printf '\nResume Claude Code to refresh the pill.\n'
+        printf 'Last refresh: %s ago   (cache TTL: API %ss)\n' "$idle_age_str" "$USAGE_CACHE_TTL"
+        exit 0
+    fi
     if (( USE_API == 1 )); then
         printf '5h window:    [%s] %5.1f%%\n' "$bar" "$PCT_FRAC"
         if (( USE_API_STALE == 1 )); then
@@ -549,20 +643,31 @@ fi
 # survive the editing toolchain reliably. Swap to '\Uf06a9' for robot (󰚩)
 # or any other MDI codepoint.
 PILL_ICON=$(printf '\Uf0674')
-# Staleness/fallback markers in the pill text:
+# Staleness / fallback / idle markers in the pill text:
 #   fresh         : "  47% · 1h 48m"
 #   stale Xm      : "  47% · 1h 48m  ·5m"            (cache served from API but not refreshed)
 #   ccusage       : "  47% · 1h 48m  CC"             (last-resort; misleads vs claude.ai)
 #   exhausts soon : "  82% · 1h 12m  →exh 14:35"     (linear projection ≥ 100% before reset)
-if (( USE_API == 0 )); then
-    PILL_SUFFIX="  CC"
-elif (( USE_API_STALE == 1 )); then
-    PILL_SUFFIX="  ·$(fmt_age "$CACHE_AGE_SECS")"
+#   idle (valid)  : "  47%  idle 9h"                 (cached window not yet ended → digit still meaningful)
+#   idle (reset)  : "  —  idle 9h"                   (cached window elapsed → no current digit to honestly show)
+if (( USE_IDLE == 1 )); then
+    idle_age_str=$(fmt_age "$CACHE_AGE_SECS")
+    if (( IDLE_WINDOW_VALID == 1 )); then
+        PILL_TEXT="${PILL_ICON}  ${PCT_INT}%  idle ${idle_age_str}"
+    else
+        PILL_TEXT="${PILL_ICON}  —  idle ${idle_age_str}"
+    fi
 else
-    PILL_SUFFIX=""
+    if (( USE_API == 0 )); then
+        PILL_SUFFIX="  CC"
+    elif (( USE_API_STALE == 1 )); then
+        PILL_SUFFIX="  ·$(fmt_age "$CACHE_AGE_SECS")"
+    else
+        PILL_SUFFIX=""
+    fi
+    [[ -n "$EXHAUSTS_AT_HM" ]] && PILL_SUFFIX="${PILL_SUFFIX}  →exh ${EXHAUSTS_AT_HM} (${EXHAUSTS_GAP_STR})"
+    PILL_TEXT="${PILL_ICON}  ${PCT_INT}% · ${ETA_STR}${PILL_SUFFIX}"
 fi
-[[ -n "$EXHAUSTS_AT_HM" ]] && PILL_SUFFIX="${PILL_SUFFIX}  →exh ${EXHAUSTS_AT_HM} (${EXHAUSTS_GAP_STR})"
-PILL_TEXT="${PILL_ICON}  ${PCT_INT}% · ${ETA_STR}${PILL_SUFFIX}"
 
 build_tooltip() {
     local resets_5h_hm resets_7d_hm
@@ -575,7 +680,18 @@ build_tooltip() {
     extra_pct_str=$(fmt_pct_1 "$EXTRA_PCT")
 
     local lines=()
-    if (( USE_API == 1 )); then
+    if (( USE_IDLE == 1 )); then
+        local idle_age_str
+        idle_age_str=$(fmt_age "$CACHE_AGE_SECS")
+        lines+=("Idle — Claude Code not used for ${idle_age_str}")
+        if (( IDLE_WINDOW_VALID == 1 )); then
+            lines+=("5h window (still active): ${PCT_FRAC}%  resets ${resets_5h_hm}  (in ${ETA_STR})")
+            lines+=("This % is from the last refresh ${idle_age_str} ago; no spend since.")
+        else
+            lines+=("Previous 5h window has ended (was: ${LAST_KNOWN_UTIL}% at reset ${resets_5h_hm}).")
+            lines+=("Current window: unknown — resume Claude Code to refresh.")
+        fi
+    elif (( USE_API == 1 )); then
         if (( USE_API_STALE == 1 )); then
             lines+=("5h: ${PCT_FRAC}%  resets ${resets_5h_hm}  (in ${ETA_STR})  [stale $(fmt_age "$CACHE_AGE_SECS")]")
         else

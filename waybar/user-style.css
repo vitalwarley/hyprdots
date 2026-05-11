@@ -13,11 +13,25 @@
 /* Source-quality markers (layered with threshold class):
  *   .stale     — API cache served beyond TTL (text shows " ·Xm")
  *   .fallback  — ccusage estimate, no recent API data (text shows " CC")
+ *   .idle      — both sources unusable AND cache file still present;
+ *                Claude Code has been idle long enough that the bearer
+ *                expired between rotations. Text either shows the cached
+ *                % (when the cached window hasn't ended yet — the digit
+ *                is still meaningful) or "—" (when the cached window has
+ *                elapsed — no honest current digit to show).
+ *
+ *                Threshold classes (.warning / .critical) are intentionally
+ *                NOT layered on .idle: the cached % belongs to the old
+ *                refresh and shouldn't trigger a real alarm.
  */
 #custom-claude.stale {
     opacity: 0.65;
 }
 #custom-claude.fallback {
     opacity: 0.55;
+    font-style: italic;
+}
+#custom-claude.idle {
+    opacity: 0.5;
     font-style: italic;
 }
