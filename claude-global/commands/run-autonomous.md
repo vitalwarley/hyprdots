@@ -98,6 +98,7 @@ This runs the full `run.sh` script which handles:
 - Live logging to `/tmp/claude-auto-*-{implement,review,fix,rereview,commit}.log` (streamable via `tail -f`)
 - Full log dump to `/tmp/claude-auto-*-{phase}-full.log` (guaranteed complete)
 - **Safe cleanup** — clone preserved if no commits were made (uncommitted work recoverable)
+- **Salvage fallback** — if the commit phase produces no commits but uncommitted work exists, the script auto-commits and pushes as a DRAFT PR (or comments on an existing PR in `--pr` mode and reverts it to draft) with the review findings embedded in the body. Work is never silently dropped on the floor.
 
 #### Three-Phase Workflow with Bounded Re-Review
 
@@ -132,6 +133,13 @@ Phase 1: Implement → Phase 2: Review → Phase 3: Fix → Phase 2b: Re-review 
 - Otherwise: commits directly
 - Includes NON-BLOCKING findings in the PR body under "Review Notes"
 - Unresolvable BLOCKING findings noted as "Known Issues" in PR body
+
+**Salvage** (auto, after commit phase):
+- If the commit phase exits without producing a commit but uncommitted work exists on the branch, `run.sh` auto-stages, commits with a `wip:` message, and pushes the branch.
+- Non-PR mode: opens a **draft PR** (`gh pr create --draft`) with the review findings file inlined in the body.
+- PR mode (`--pr N`): posts a comment with the findings on the existing PR and reverts the PR to draft (`gh pr ready --undo`).
+- If the salvage push fails (auth/network), the clone is preserved so the commit can be pushed manually.
+- Rationale: an agent that bails (e.g., refuses to ship because BLOCKING findings exist) should not delete the implementation — the work goes up as DRAFT with findings visible so a human can pick it up.
 
 **Why separate invocations?** The reviewer must not fix its own findings. Separating review (read-only) from fix (write) enforces honest reporting — the reviewer has no incentive to minimize findings.
 
