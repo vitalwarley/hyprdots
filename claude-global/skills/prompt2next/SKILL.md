@@ -114,14 +114,20 @@ Always save the prompt to `/tmp/prompt-<slug>-<YYYY-MM-DD>.md` automatically (no
 
 ### 6. Chat output (strict)
 
-**The chat output of this skill is the saved path and nothing else.** Do NOT echo the prompt content in chat (no fenced block, no quote, no preview, no "here's what I wrote"). The user opens the file themselves if they want to read it.
+**The chat output of this skill is exactly one line: `Execute <absolute-path>`.** Nothing else — no preamble, no slice confirmation, no echo of the prompt content, no usage hints, no surrounding prose.
 
-Allowed chat output:
-- One line confirming the slice + plan path being targeted (from step 2)
-- The saved path (e.g., `Saved to /tmp/prompt-<slug>-<YYYY-MM-DD>.md`)
-- A pointer to next steps if relevant (e.g., "Run `cat <path> | xclip -selection clipboard` to copy")
+Example:
+```
+Execute /tmp/prompt-update-preview-19-05-2026-05-12.md
+```
 
-Why: the user invoked `/prompt2next` because they want a paste-ready file, not a chat readout. Re-printing duplicates context, eats tokens, and signals the skill doesn't trust its own file output.
+Why this exact shape: the user copies the line as-is into a fresh Claude Code session. The next Claude sees `Execute <path>` and reads the file directly. Any extra text in chat is friction (user has to clean the paste) and signals the skill doesn't trust its own file output.
+
+Do NOT add:
+- Slice/plan confirmation (already inferred during the run; the file itself states it)
+- "Saved to..." wording (redundant with `Execute`)
+- Copy hints (`xclip ...`) — the user knows their own clipboard workflow
+- A fenced block — output is a single line, not a code snippet
 
 ## Design principles
 
