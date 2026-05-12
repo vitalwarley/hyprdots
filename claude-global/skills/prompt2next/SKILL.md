@@ -102,20 +102,26 @@ The prompt is **raw markdown content** with this structure:
 Run `/prompt2next <next slice name>` to generate the next session's prompt.
 ```
 
-**Critical separation of file vs chat display**:
-- **The file saved to disk must contain ONLY the raw content** above — starting with `# Session: ...`, no outer ` ``` ` wrapper. The file is consumed by `cat` and pasted into the next session; an outer fence would leak into the new session as literal backticks.
-- **When echoing the prompt in chat**, wrap the raw content in a fenced code block (` ``` ` … ` ``` `) so the user can copy without trailing whitespace getting munged. The fence is a chat affordance only — it never reaches the file.
-
-### 5. Save to /tmp
-
-Always save the prompt to `/tmp/prompt-<slug>-<YYYY-MM-DD>.md` automatically (no confirmation needed). Print the path after saving. If the user wants a different location (e.g., `notes/areas/.../prompts/`), accept their path and save there instead.
-
-**File contract** (re-stating because this is the most common defect):
+**File contract**:
+- The file saved to disk must contain ONLY the raw content above — starting with `# Session: ...`, no outer ` ``` ` wrapper. The file is consumed by `cat` and pasted into the next session; an outer fence would leak into the new session as literal backticks.
 - First line of the file is `# Session: <slice name>` — not ` ``` `.
 - Last line of the file is the last bullet/sentence of "How to continue" — not ` ``` `.
 - A `head -1 /tmp/prompt-*.md` should return the H1, never a fence.
 
-The user should be able to do `cat /tmp/prompt-<slug>-<date>.md | xclip -selection clipboard` (or equivalent) and paste directly into a new session, with zero post-processing.
+### 5. Save to /tmp
+
+Always save the prompt to `/tmp/prompt-<slug>-<YYYY-MM-DD>.md` automatically (no confirmation needed). If the user wants a different location (e.g., `notes/areas/.../prompts/`), accept their path and save there instead.
+
+### 6. Chat output (strict)
+
+**The chat output of this skill is the saved path and nothing else.** Do NOT echo the prompt content in chat (no fenced block, no quote, no preview, no "here's what I wrote"). The user opens the file themselves if they want to read it.
+
+Allowed chat output:
+- One line confirming the slice + plan path being targeted (from step 2)
+- The saved path (e.g., `Saved to /tmp/prompt-<slug>-<YYYY-MM-DD>.md`)
+- A pointer to next steps if relevant (e.g., "Run `cat <path> | xclip -selection clipboard` to copy")
+
+Why: the user invoked `/prompt2next` because they want a paste-ready file, not a chat readout. Re-printing duplicates context, eats tokens, and signals the skill doesn't trust its own file output.
 
 ## Design principles
 
