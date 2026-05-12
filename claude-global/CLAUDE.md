@@ -11,6 +11,7 @@
 - systemd user units (`~/.config/systemd/user/`) are symlinks to `~/life/2-areas/dev-tools/hyprdots/.config/systemd/user/` — same git-tracked pattern
 - to edit: use Edit tool (follows symlink, edits the versioned file directly)
 - if Write tool is used on a command/skill/hook, it replaces the symlink with a plain file — must re-create the symlink afterward: `ln -sf <hyprdots-path> <global-path>`
+- **creating a NEW command/skill/hook** (not editing existing): after `Write` of `claude-global/<kind>/<name>/...` and committing in hyprdots, also create the symlink in `~/.claude/`: `ln -s ~/life/2-areas/dev-tools/hyprdots/claude-global/<kind>/<name> ~/.claude/<kind>/<name>`. Git push alone does NOT make the new skill/command/hook discoverable — each one needs its own symlink.
 - canonical layout: `docs/workflows/auto-diary.md` documents the full hook/skill wiring
 
 ## System & Docker
