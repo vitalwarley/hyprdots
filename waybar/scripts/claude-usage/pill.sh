@@ -226,6 +226,12 @@ try_refresh_api() {
     fi
     printf '%s' "$body" > "$USAGE_CACHE"
     rm -f "$USAGE_FAIL_LOCK"
+    # Snapshot sink (D1, 2026-05-14): append API response to persistent JSONL
+    # for Batch D forecasting. Monthly rotation; ~57 KB/day uncompressed.
+    local snapshot_dir="${XDG_DATA_HOME:-$HOME/.local/share}/claude-usage"
+    mkdir -p "$snapshot_dir" 2>/dev/null && printf '%s' "$body" \
+        | jq -c --arg ts "$(date -u +%FT%TZ)" '. + {ts: $ts}' \
+        >> "$snapshot_dir/api-snapshots-$(date +%Y-%m).jsonl" 2>/dev/null || true
     # Trail: append (now, util) and trim to the retain window. Filtering
     # via awk in-place avoids a separate cron — the file stays bounded.
     local util_now now_epoch cutoff
