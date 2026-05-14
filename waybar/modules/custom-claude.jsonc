@@ -1,13 +1,13 @@
 {
   "custom/claude": {
-    "exec": "/home/warley/life/2-areas/dev-tools/hyprdots/waybar/scripts/claude-usage.sh",
+    "exec": "/home/warley/life/2-areas/dev-tools/hyprdots/waybar/scripts/claude-usage/pill.sh",
     "return-type": "json",
     "interval": 30,
     "tooltip": true,
     "max-length": 44
     // Icon prefix is set in the wrapper's PILL_TEXT (printf '\Uf0674'),
     // not via "format" here — high-codepoint Nerd Font glyphs don't
-    // survive editor round-trips reliably. See claude-usage.sh.
+    // survive editor round-trips reliably. See claude-usage/pill.sh.
   }
 }
 

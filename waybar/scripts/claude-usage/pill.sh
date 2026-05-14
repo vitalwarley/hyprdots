@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# claude-usage.sh — Claude Code Max5x quota pill + on-demand TUI
+# pill.sh — Claude Code Max5x quota pill + on-demand TUI
+# (moved 2026-05-14 from waybar/scripts/claude-usage.sh as part of D0 refactor;
+#  see notes/areas/claude/realtime-usage/realtime-usage.md "Batch D")
 #
 # Modes:
 #   (no args)   waybar JSON: {text, tooltip, class, percentage}
