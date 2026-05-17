@@ -1,0 +1,6 @@
+[Unit]
+Description=Scan ~/.claude/projects/ JSONL → ~/.local/share/claude-usage/sessions-YYYY-MM.jsonl (D2)
+
+[Service]
+Type=oneshot
+ExecStart=/usr/bin/python3 %h/life/2-areas/dev-tools/hyprdots/waybar/scripts/claude-usage/scan-sessions.py
